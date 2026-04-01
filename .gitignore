@@ -1,21 +1,9 @@
-# Python
-__pycache__/
-*.py[cod]
-.venv/
+node_modules
+.next
+dist
 .env
-
-# Node
-node_modules/
+.env.local
 *.log
-
-# Editors
-.idea/
-.vscode/
-
-# Build outputs
-dist/
-build/
-
-# OS
-Thumbs.db
-.DS_Store
+coverage
+.prisma
+apps/web/tsconfig.tsbuildinfo
