@@ -1,50 +1,35 @@
-# Starter: FastAPI + Vite (Minimal)
+# Ultimate General Website Template
 
-A minimal, industry-standard starter with:
-- `server/` - FastAPI API (`/api/health`).
-- `frontend/` - Vite + React app that renders a full-screen black page.
-
-## Project Layout
-
-```
-server/
-  app/
-    api/
-      routes/
-        health.py
-      router.py
-    core/
-      config.py
-    main.py
-frontend/
-  src/
-    App.tsx
-    main.tsx
-    index.css
-```
+A Turborepo-powered full-stack starter built from proven patterns in official docs/examples:
+- `apps/web`: Next.js 15 (standalone Docker output)
+- `apps/api`: NestJS 11 + Prisma + Swagger + Joi validation + Winston logging
+- `packages/db`: shared Prisma schema and migration commands
+- `packages/shared`: shared Zod contracts
+- Docker Compose with Postgres 16
+- GitHub Actions CI (lint/typecheck/build)
 
 ## Quick Start
 
-### Server
-```powershell
-python -m venv .venv
-.venv\Scripts\activate
-pip install -r server/requirements.txt
-uvicorn server.app.main:app --reload --port 8000
-```
-
-### Web
-```powershell
-cd frontend
+```bash
+cp .env.example .env
 npm install
 npm run dev
 ```
 
-Open `http://localhost:5173`.
+### Docker
 
-## Configuration
+```bash
+docker compose up --build
+```
 
-Environment variables for the API:
-- `APP_NAME` (default: `Starter API`)
-- `API_PREFIX` (default: `/api`)
-- `CORS_ORIGINS` (comma-separated, default: `http://localhost:5173`)
+## Structure
+
+```text
+apps/
+  api/
+  web/
+packages/
+  db/
+  shared/
+.github/workflows/
+```
