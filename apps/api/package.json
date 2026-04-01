@@ -2,25 +2,28 @@
   "name": "@apps/api",
   "private": true,
   "scripts": {
-    "dev": "ts-node-dev --respawn --transpile-only src/main.ts",
-    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsx watch --clear-screen=false src/main.ts",
+    "build": "npm run prisma:generate && tsc -p tsconfig.build.json",
     "start": "node dist/main.js",
-    "lint": "echo 'No linter configured yet for api'",
-    "typecheck": "tsc --noEmit",
-    "test": "echo 'No tests yet for api'",
+    "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\" --max-warnings=0",
+    "typecheck": "npm run prisma:generate && tsc --noEmit",
+    "test": "vitest run",
     "prisma:generate": "prisma generate --schema ../../packages/db/prisma/schema.prisma",
     "prisma:migrate:dev": "prisma migrate dev --schema ../../packages/db/prisma/schema.prisma",
     "prisma:migrate:deploy": "prisma migrate deploy --schema ../../packages/db/prisma/schema.prisma"
   },
   "dependencies": {
-    "@nestjs/common": "^11.0.7",
+    "@nestjs/common": "^11.1.17",
     "@nestjs/config": "^4.0.2",
-    "@nestjs/core": "^11.0.7",
-    "@nestjs/platform-express": "^11.0.7",
-    "@nestjs/swagger": "^11.1.2",
+    "@nestjs/core": "^11.1.17",
+    "@nestjs/platform-express": "^11.1.17",
+    "@nestjs/swagger": "^11.2.6",
+    "@nestjs/throttler": "^6.4.0",
     "@prisma/client": "^6.6.0",
+    "argon2": "^0.41.1",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
+    "cookie-parser": "^1.4.7",
     "helmet": "^8.1.0",
     "joi": "^17.13.3",
     "reflect-metadata": "^0.2.2",
@@ -29,11 +32,15 @@
     "winston": "^3.17.0"
   },
   "devDependencies": {
+    "@nestjs/testing": "^11.1.17",
+    "@types/cookie-parser": "^1.4.8",
     "@types/express": "^5.0.1",
     "@types/node": "^22.15.2",
+    "@types/supertest": "^6.0.3",
     "prisma": "^6.6.0",
-    "ts-node": "^10.9.2",
-    "ts-node-dev": "^2.0.0",
-    "typescript": "^5.8.3"
+    "supertest": "^7.1.1",
+    "tsx": "^4.19.4",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.2"
   }
 }

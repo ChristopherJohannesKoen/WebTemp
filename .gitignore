@@ -1,9 +1,14 @@
 node_modules
 .next
 dist
+.turbo
 .env
 .env.local
 *.log
 coverage
 .prisma
+playwright-report
+test-results
 apps/web/tsconfig.tsbuildinfo
+*.tsbuildinfo
+server/

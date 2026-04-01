@@ -2,21 +2,29 @@
   "name": "@apps/web",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 3000",
+    "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "echo 'No linter configured yet for web'",
+    "lint": "eslint \"app/**/*.{ts,tsx}\" \"components/**/*.{ts,tsx}\" \"lib/**/*.{ts,tsx}\" \"test/**/*.{ts,tsx}\" --max-warnings=0",
     "typecheck": "tsc --noEmit",
-    "test": "echo 'No tests yet for web'"
+    "test": "vitest run"
   },
   "dependencies": {
-    "next": "15.3.1",
-    "react": "19.1.0",
-    "react-dom": "19.1.0"
+    "@packages/shared": "file:../../packages/shared",
+    "@packages/ui": "file:../../packages/ui",
+    "clsx": "^2.1.1",
+    "next": "15.5.14",
+    "react": "19.2.4",
+    "react-dom": "19.2.4"
   },
   "devDependencies": {
+    "autoprefixer": "^10.4.20",
     "@types/node": "^22.15.2",
-    "@types/react": "^19.1.2",
-    "typescript": "^5.8.3"
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.2"
   }
 }

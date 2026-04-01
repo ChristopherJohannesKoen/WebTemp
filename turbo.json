@@ -3,7 +3,7 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**", ".next/**"]
+      "outputs": ["dist/**", ".next/**", "coverage/**", "playwright-report/**"]
     },
     "dev": {
       "cache": false,
@@ -17,6 +17,9 @@
     },
     "test": {
       "dependsOn": ["^test"]
+    },
+    "test:e2e": {
+      "cache": false
     }
   }
 }

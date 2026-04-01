@@ -1,20 +1,26 @@
-FROM node:20-alpine AS base
+FROM node:22-alpine AS base
 
 FROM base AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY apps/web/package.json ./apps/web/package.json
-RUN npm ci
+COPY packages/shared/package.json ./packages/shared/package.json
+COPY packages/ui/package.json ./packages/ui/package.json
+COPY packages/config/package.json ./packages/config/package.json
+COPY packages/db/package.json ./packages/db/package.json
+RUN npm ci --ignore-scripts
 
 FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN npm run build --workspace=@apps/web
+ENV NEXT_TELEMETRY_DISABLED=1
+RUN npm run prisma:generate && npm run build --workspace=@apps/web
 
 FROM base AS runner
 WORKDIR /app
 ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
 RUN addgroup -S nodejs && adduser -S nextjs -G nodejs
 COPY --from=builder /app/apps/web/.next/standalone ./
 COPY --from=builder /app/apps/web/.next/static ./apps/web/.next/static

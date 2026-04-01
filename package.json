@@ -1,21 +1,49 @@
 {
   "name": "ultimate-general-website-template",
   "private": true,
-  "version": "1.0.0",
+  "version": "2.0.0",
+  "packageManager": "npm@10.9.2",
   "workspaces": [
     "apps/*",
     "packages/*"
   ],
   "scripts": {
-    "build": "turbo run build",
-    "dev": "turbo run dev --parallel",
+    "postinstall": "npm run prisma:generate",
+    "build": "npm run prisma:generate && turbo run build",
+    "dev": "node ./scripts/with-env.mjs turbo run dev --parallel --filter=@apps/api --filter=@apps/web",
+    "dev:services": "docker compose up db -d",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
-    "test": "turbo run test"
+    "test": "turbo run test",
+    "test:e2e": "node ./scripts/with-env.mjs playwright test",
+    "format:check": "prettier --check .",
+    "format:write": "prettier --write .",
+    "db:setup": "node ./scripts/with-env.mjs npm run prisma:migrate:dev --workspace=@packages/db && node ./scripts/with-env.mjs npm run seed --workspace=@packages/db",
+    "db:reset": "node ./scripts/with-env.mjs npm run prisma:reset --workspace=@packages/db",
+    "prisma:generate": "node ./scripts/with-env.mjs npm run prisma:generate --workspace=@packages/db",
+    "prisma:migrate:deploy": "node ./scripts/with-env.mjs npm run prisma:migrate:deploy --workspace=@packages/db",
+    "seed": "node ./scripts/with-env.mjs npm run seed --workspace=@packages/db",
+    "docker:up": "docker compose up --build",
+    "docker:down": "docker compose down --remove-orphans"
   },
   "devDependencies": {
-    "turbo": "^2.0.14",
-    "typescript": "^5.8.3"
-  },
-  "packageManager": "npm@10.9.2"
+    "@eslint/js": "^9.0.0",
+    "@next/eslint-plugin-next": "^15.5.14",
+    "@playwright/test": "^1.59.0",
+    "@testing-library/react": "^16.3.0",
+    "@types/node": "^22.15.2",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "dotenv": "^16.4.7",
+    "eslint": "^9.0.0",
+    "eslint-config-prettier": "^10.1.2",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "globals": "^15.14.0",
+    "jsdom": "^26.1.0",
+    "prettier": "^3.5.3",
+    "turbo": "^2.4.2",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.0.0",
+    "vitest": "^4.1.2"
+  }
 }

@@ -1,18 +1,15 @@
 {
+  "extends": "../../packages/config/tsconfig.base.json",
   "compilerOptions": {
-    "module": "commonjs",
+    "baseUrl": "./",
     "declaration": true,
-    "removeComments": true,
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
-    "allowSyntheticDefaultImports": true,
-    "target": "es2022",
-    "sourceMap": true,
+    "module": "commonjs",
     "outDir": "./dist",
-    "baseUrl": "./",
-    "incremental": true,
-    "strict": true,
-    "skipLibCheck": true
+    "rootDir": ".",
+    "sourceMap": true,
+    "types": ["node"]
   },
-  "include": ["src/**/*"]
+  "include": ["src/**/*.ts", "test/**/*.ts"]
 }
