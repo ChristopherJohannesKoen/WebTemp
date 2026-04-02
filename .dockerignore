@@ -6,6 +6,9 @@ coverage
 playwright-report
 test-results
 dist
+**/dist
+*.tsbuildinfo
+**/*.tsbuildinfo
 **/.next
 **/node_modules
 server

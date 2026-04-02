@@ -1,4 +1,8 @@
 FROM node:22-alpine AS base
+ENV npm_config_fetch_retries=5
+ENV npm_config_fetch_retry_mintimeout=20000
+ENV npm_config_fetch_retry_maxtimeout=120000
+ENV npm_config_fetch_timeout=300000
 
 FROM base AS deps
 WORKDIR /app
