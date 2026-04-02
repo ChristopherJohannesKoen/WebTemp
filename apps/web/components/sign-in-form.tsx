@@ -48,6 +48,7 @@ export function SignInForm() {
         <Field hint="Example: owner@example.com" label="Email">
           <Input
             autoComplete="email"
+            data-testid="sign-in-email"
             name="email"
             placeholder="you@example.com"
             required
@@ -57,6 +58,7 @@ export function SignInForm() {
         <Field label="Password">
           <Input
             autoComplete="current-password"
+            data-testid="sign-in-password"
             minLength={8}
             name="password"
             placeholder="At least 8 characters"
@@ -64,8 +66,8 @@ export function SignInForm() {
             type="password"
           />
         </Field>
-        {error ? <p className="text-sm text-rose-600">{error}</p> : null}
-        <Button disabled={pending} type="submit">
+        {error ? <p className="text-sm text-rose-600" data-testid="sign-in-error">{error}</p> : null}
+        <Button data-testid="sign-in-submit" disabled={pending} type="submit">
           {pending ? 'Signing in...' : 'Sign in'}
         </Button>
       </form>

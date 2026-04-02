@@ -31,10 +31,16 @@ export function LogoutButton() {
 
   return (
     <div className="grid gap-2">
-      <Button className="w-full" onClick={handleLogout} type="button" variant="secondary">
+      <Button
+        className="w-full"
+        data-testid="sidebar-sign-out"
+        onClick={handleLogout}
+        type="button"
+        variant="secondary"
+      >
         {pending ? 'Signing out...' : 'Sign out'}
       </Button>
-      {error ? <p className="text-xs text-rose-300">{error}</p> : null}
+      {error ? <p className="text-xs text-rose-300" data-testid="sidebar-sign-out-error">{error}</p> : null}
     </div>
   );
 }

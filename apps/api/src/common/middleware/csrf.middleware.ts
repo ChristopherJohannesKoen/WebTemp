@@ -1,12 +1,10 @@
-import { Injectable, NestMiddleware } from '@nestjs/common';
+import { ForbiddenException, Injectable, NestMiddleware } from '@nestjs/common';
+import { createHash, timingSafeEqual } from 'node:crypto';
 import type { NextFunction, Response } from 'express';
-import { AuthService } from '../../modules/auth/auth.service';
 import type { AuthenticatedRequest } from '../types/authenticated-request';
 
 @Injectable()
 export class CsrfMiddleware implements NestMiddleware {
-  constructor(private readonly authService: AuthService) {}
-
   use(request: AuthenticatedRequest, _: Response, next: NextFunction) {
     if (['GET', 'HEAD', 'OPTIONS'].includes(request.method)) {
       next();
@@ -18,10 +16,20 @@ export class CsrfMiddleware implements NestMiddleware {
       return;
     }
 
-    this.authService.assertCsrfToken(
-      request.currentSession,
-      request.header('x-csrf-token') ?? undefined
-    );
+    const rawToken = request.header('x-csrf-token') ?? undefined;
+
+    if (!rawToken) {
+      throw new ForbiddenException('A valid CSRF token is required.');
+    }
+
+    const candidateHash = createHash('sha256').update(rawToken).digest('hex');
+
+    if (
+      candidateHash.length !== request.currentSession.csrfTokenHash.length ||
+      !timingSafeEqual(Buffer.from(request.currentSession.csrfTokenHash), Buffer.from(candidateHash))
+    ) {
+      throw new ForbiddenException('A valid CSRF token is required.');
+    }
 
     next();
   }

@@ -3,10 +3,10 @@
   "private": true,
   "scripts": {
     "dev": "tsx watch --clear-screen=false src/main.ts",
-    "build": "npm run prisma:generate && tsc -p tsconfig.build.json --incremental false",
+    "build": "tsc -p tsconfig.build.json --incremental false",
     "start": "node dist/main.js",
     "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\" --max-warnings=0",
-    "typecheck": "npm run prisma:generate && tsc --noEmit",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "prisma:generate": "prisma generate --schema ../../packages/db/prisma/schema.prisma",
     "prisma:migrate:dev": "prisma migrate dev --schema ../../packages/db/prisma/schema.prisma",

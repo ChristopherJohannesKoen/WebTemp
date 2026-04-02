@@ -3,6 +3,8 @@ import { Badge, Card, EmptyState, buttonClassName } from '@packages/ui';
 import { formatDate, projectTone } from '../../../lib/display';
 import { getProjects } from '../../../lib/server-api';
 
+export const dynamic = 'force-dynamic';
+
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 function getSingleValue(value: string | string[] | undefined) {
@@ -63,11 +65,12 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Sea
         <div className="flex flex-wrap gap-3">
           <Link
             className={buttonClassName({ variant: 'secondary' })}
+            data-testid="project-export-link"
             href={`/api/projects/export.csv?${filterParams.toString()}`}
           >
             Export CSV
           </Link>
-          <Link className={buttonClassName({})} href="/app/projects/new">
+          <Link className={buttonClassName({})} data-testid="project-new-link" href="/app/projects/new">
             New project
           </Link>
         </div>
@@ -126,7 +129,11 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Sea
       ) : (
         <div className="grid gap-4 xl:grid-cols-2">
           {projects.items.map((project) => (
-            <Card key={project.id}>
+            <Card
+              data-project-name={project.name}
+              data-testid="project-card"
+              key={project.id}
+            >
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="space-y-3">
                   <div className="flex flex-wrap gap-2">

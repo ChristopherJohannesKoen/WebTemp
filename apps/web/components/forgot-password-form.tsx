@@ -45,19 +45,27 @@ export function ForgotPasswordForm() {
         <Field label="Email">
           <Input
             autoComplete="email"
+            data-testid="forgot-password-email"
             name="email"
             placeholder="you@example.com"
             required
             type="email"
           />
         </Field>
-        {error ? <p className="text-sm text-rose-600">{error}</p> : null}
-        <Button disabled={pending} type="submit">
+        {error ? (
+          <p className="text-sm text-rose-600" data-testid="forgot-password-error">
+            {error}
+          </p>
+        ) : null}
+        <Button data-testid="forgot-password-submit" disabled={pending} type="submit">
           {pending ? 'Generating link...' : 'Generate reset link'}
         </Button>
       </form>
       {result ? (
-        <div className="mt-6 grid gap-3 rounded-3xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+        <div
+          className="mt-6 grid gap-3 rounded-3xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900"
+          data-testid="forgot-password-result"
+        >
           <p>{result.message}</p>
           {result.resetUrl ? (
             <Link className="font-semibold underline" href={result.resetUrl}>
@@ -65,7 +73,9 @@ export function ForgotPasswordForm() {
             </Link>
           ) : null}
           {result.resetToken ? (
-            <p className="break-all text-xs text-emerald-700">Token: {result.resetToken}</p>
+            <p className="break-all text-xs text-emerald-700" data-testid="forgot-password-token">
+              Token: {result.resetToken}
+            </p>
           ) : null}
         </div>
       ) : null}

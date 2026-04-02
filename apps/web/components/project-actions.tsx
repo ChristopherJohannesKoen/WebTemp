@@ -7,7 +7,13 @@ import { Button } from '@packages/ui';
 import { toApiError } from '../lib/api-error';
 import { clientApiRequest } from '../lib/client-api';
 
-export function ProjectActions({ project }: { project: Project }) {
+export function ProjectActions({
+  onChanged,
+  project
+}: {
+  onChanged?: (project: Project) => void;
+  project: Project;
+}) {
   const router = useRouter();
   const [pendingAction, setPendingAction] = useState<'archive' | 'delete'>();
   const [error, setError] = useState<string>();
@@ -17,13 +23,14 @@ export function ProjectActions({ project }: { project: Project }) {
     setError(undefined);
 
     try {
-      await clientApiRequest<Project>(`/api/projects/${project.id}`, {
+      const updatedProject = await clientApiRequest<Project>(`/api/projects/${project.id}`, {
         method: 'PATCH',
         body: JSON.stringify({
           isArchived: !project.isArchived
         })
       });
 
+      onChanged?.(updatedProject);
       router.refresh();
     } catch (caughtError) {
       setError(toApiError(caughtError).message);
@@ -57,9 +64,10 @@ export function ProjectActions({ project }: { project: Project }) {
   }
 
   return (
-    <div className="grid gap-3">
+    <div className="grid gap-3" data-testid="project-actions">
       <div className="flex flex-wrap gap-3">
         <Button
+          data-testid="project-archive-toggle"
           disabled={pendingAction !== undefined}
           onClick={handleArchiveToggle}
           type="button"
@@ -72,6 +80,7 @@ export function ProjectActions({ project }: { project: Project }) {
               : 'Archive project'}
         </Button>
         <Button
+          data-testid="project-delete"
           disabled={pendingAction !== undefined}
           onClick={handleDelete}
           type="button"
@@ -80,7 +89,7 @@ export function ProjectActions({ project }: { project: Project }) {
           {pendingAction === 'delete' ? 'Deleting...' : 'Delete project'}
         </Button>
       </div>
-      {error ? <p className="text-sm text-rose-600">{error}</p> : null}
+      {error ? <p className="text-sm text-rose-600" data-testid="project-actions-error">{error}</p> : null}
     </div>
   );
 }

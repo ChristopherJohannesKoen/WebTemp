@@ -9,10 +9,11 @@ import { clientApiRequest } from '../lib/client-api';
 
 type ProjectFormProps = {
   mode: 'create' | 'edit';
+  onSaved?: (project: Project) => void;
   project?: Project;
 };
 
-export function ProjectForm({ mode, project }: ProjectFormProps) {
+export function ProjectForm({ mode, onSaved, project }: ProjectFormProps) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string>();
@@ -40,7 +41,12 @@ export function ProjectForm({ mode, project }: ProjectFormProps) {
         }
       );
 
-      router.push(`/app/projects/${response.id}`);
+      if (project) {
+        onSaved?.(response);
+      } else {
+        router.push(`/app/projects/${response.id}`);
+      }
+
       router.refresh();
     } catch (caughtError) {
       setError(toApiError(caughtError).message);
@@ -50,9 +56,10 @@ export function ProjectForm({ mode, project }: ProjectFormProps) {
   }
 
   return (
-    <form action={handleSubmit} className="grid gap-5">
+    <form action={handleSubmit} className="grid gap-5" data-testid={`project-form-${mode}`}>
       <Field hint="Short, specific, and reusable." label="Project name">
         <Input
+          data-testid="project-name"
           defaultValue={project?.name}
           name="name"
           placeholder="Client portal rebuild"
@@ -64,6 +71,7 @@ export function ProjectForm({ mode, project }: ProjectFormProps) {
         label="Description"
       >
         <Textarea
+          data-testid="project-description"
           defaultValue={project?.description ?? ''}
           name="description"
           placeholder="Summarize goals, scope, and the next important milestone."
@@ -71,7 +79,7 @@ export function ProjectForm({ mode, project }: ProjectFormProps) {
       </Field>
       <div className="grid gap-5 md:grid-cols-[1fr_auto] md:items-end">
         <Field label="Status">
-          <Select defaultValue={project?.status ?? 'active'} name="status">
+          <Select data-testid="project-status" defaultValue={project?.status ?? 'active'} name="status">
             <option value="active">Active</option>
             <option value="paused">Paused</option>
             <option value="completed">Completed</option>
@@ -80,6 +88,7 @@ export function ProjectForm({ mode, project }: ProjectFormProps) {
         <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
           <input
             className="size-4"
+            data-testid="project-is-archived"
             defaultChecked={project?.isArchived}
             name="isArchived"
             type="checkbox"
@@ -87,9 +96,9 @@ export function ProjectForm({ mode, project }: ProjectFormProps) {
           Archive after save
         </label>
       </div>
-      {error ? <p className="text-sm text-rose-600">{error}</p> : null}
+      {error ? <p className="text-sm text-rose-600" data-testid="project-form-error">{error}</p> : null}
       <div className="flex flex-wrap gap-3">
-        <Button disabled={pending} type="submit">
+        <Button data-testid="project-submit" disabled={pending} type="submit">
           {pending ? 'Saving...' : mode === 'create' ? 'Create project' : 'Save changes'}
         </Button>
         <Button onClick={() => router.back()} type="button" variant="ghost">

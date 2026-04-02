@@ -39,17 +39,17 @@ export function RoleForm({ user }: { user: UserSummary }) {
   }
 
   return (
-    <form action={handleSubmit} className="grid gap-2">
+    <form action={handleSubmit} className="grid gap-2" data-testid="role-form">
       <div className="flex flex-wrap items-center gap-2">
-        <Select defaultValue={user.role} name="role">
+        <Select data-testid="role-select" defaultValue={user.role} name="role">
           <option value="admin">Admin</option>
           <option value="member">Member</option>
         </Select>
-        <Button disabled={pending} type="submit" variant="secondary">
+        <Button data-testid="role-submit" disabled={pending} type="submit" variant="secondary">
           {pending ? 'Saving...' : 'Update'}
         </Button>
       </div>
-      {error ? <p className="text-xs text-rose-600">{error}</p> : null}
+      {error ? <p className="text-xs text-rose-600" data-testid="role-form-error">{error}</p> : null}
     </form>
   );
 }

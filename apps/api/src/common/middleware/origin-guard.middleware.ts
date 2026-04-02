@@ -1,26 +1,32 @@
 import { ForbiddenException, Injectable, NestMiddleware } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import type { NextFunction, Response } from 'express';
-import { getAllowedOrigins } from '../config/allowed-origins';
+import { parseAllowedOrigins } from '../config/allowed-origins';
 import type { AuthenticatedRequest } from '../types/authenticated-request';
 
 @Injectable()
 export class OriginGuardMiddleware implements NestMiddleware {
-  constructor(private readonly configService: ConfigService) {}
-
   use(request: AuthenticatedRequest, _: Response, next: NextFunction) {
     if (['GET', 'HEAD', 'OPTIONS'].includes(request.method)) {
       next();
       return;
     }
 
-    const isTest = this.configService.get<string>('NODE_ENV') === 'test';
+    const isTest = process.env.NODE_ENV === 'test';
     const origin = request.header('origin');
     const referer = request.header('referer');
-    const allowedOrigins = new Set(getAllowedOrigins(this.configService));
+    const allowedOrigins = new Set(
+      parseAllowedOrigins([
+        process.env.APP_URL,
+        process.env.API_ORIGIN,
+        ...(process.env.ALLOWED_ORIGINS ?? '')
+          .split(',')
+          .map((allowedOrigin) => allowedOrigin.trim())
+          .filter(Boolean)
+      ])
+    );
 
     if (!origin && !referer) {
-      if (isTest || this.configService.get<string>('NODE_ENV') !== 'production') {
+      if (isTest || process.env.NODE_ENV !== 'production') {
         next();
         return;
       }

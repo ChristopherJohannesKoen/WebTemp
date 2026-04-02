@@ -3,6 +3,7 @@ node_modules
 dist
 .turbo
 .env
+.env.e2e
 .env.local
 *.log
 coverage

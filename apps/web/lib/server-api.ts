@@ -1,4 +1,5 @@
 import { cookies } from 'next/headers';
+import { unstable_noStore as noStore } from 'next/cache';
 import { redirect } from 'next/navigation';
 import type {
   AuthResponse,
@@ -8,11 +9,15 @@ import type {
   UserListResponse,
   UserSummary
 } from '@packages/shared';
-import { parseApiResponse } from './api-error';
+import { ApiRequestError, parseApiResponse } from './api-error';
 
 const apiOrigin = process.env.API_ORIGIN ?? 'http://localhost:4000';
 
 function getFetchOptions(path: string, init?: RequestInit) {
+  if (process.env.NODE_ENV === 'test') {
+    return { cache: 'no-store' as const };
+  }
+
   const method = init?.method?.toUpperCase() ?? 'GET';
 
   if (method !== 'GET') {
@@ -37,6 +42,7 @@ function getFetchOptions(path: string, init?: RequestInit) {
 async function serverApiRequest<T>(path: string, init?: RequestInit) {
   const cookieStore = await cookies();
   const headers = new Headers(init?.headers);
+  const fetchOptions = getFetchOptions(path, init);
 
   if (!headers.has('Content-Type') && init?.body) {
     headers.set('Content-Type', 'application/json');
@@ -46,13 +52,29 @@ async function serverApiRequest<T>(path: string, init?: RequestInit) {
     headers.set('cookie', cookieStore.toString());
   }
 
+  if ('cache' in fetchOptions && fetchOptions.cache === 'no-store') {
+    noStore();
+  }
+
   const response = await fetch(`${apiOrigin}/api${path}`, {
     ...init,
-    ...getFetchOptions(path, init),
+    ...fetchOptions,
     headers
   });
 
   return parseApiResponse<T>(response);
+}
+
+async function protectedServerApiRequest<T>(path: string, init?: RequestInit) {
+  try {
+    return await serverApiRequest<T>(path, init);
+  } catch (error) {
+    if (error instanceof ApiRequestError && error.statusCode === 401) {
+      redirect('/login');
+    }
+
+    throw error;
+  }
 }
 
 export async function getCurrentUser() {
@@ -75,21 +97,21 @@ export async function requireCurrentUser() {
 }
 
 export async function getProjects(query = '') {
-  return serverApiRequest<ProjectListResponse>(`/projects${query ? `?${query}` : ''}`);
+  return protectedServerApiRequest<ProjectListResponse>(`/projects${query ? `?${query}` : ''}`);
 }
 
 export async function getProject(projectId: string) {
-  return serverApiRequest<Project>(`/projects/${projectId}`);
+  return protectedServerApiRequest<Project>(`/projects/${projectId}`);
 }
 
 export async function getUsers(query = '') {
-  return serverApiRequest<UserListResponse>(`/admin/users${query ? `?${query}` : ''}`);
+  return protectedServerApiRequest<UserListResponse>(`/admin/users${query ? `?${query}` : ''}`);
 }
 
 export async function getUserProfile() {
-  return serverApiRequest<UserSummary>('/users/me');
+  return protectedServerApiRequest<UserSummary>('/users/me');
 }
 
 export async function getSessions() {
-  return serverApiRequest<SessionListResponse>('/auth/sessions');
+  return protectedServerApiRequest<SessionListResponse>('/auth/sessions');
 }

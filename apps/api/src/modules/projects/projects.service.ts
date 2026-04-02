@@ -156,6 +156,7 @@ export class ProjectsService {
         name: dto.name.trim(),
         description: dto.description?.trim() || null,
         status: dto.status ?? ProjectStatus.active,
+        isArchived: dto.isArchived ?? false,
         creatorId: currentUser.id
       },
       include: { creator: true }

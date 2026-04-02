@@ -48,6 +48,7 @@ export function ResetPasswordForm({ initialToken }: { initialToken?: string }) {
       <form action={handleSubmit} className="mt-6 grid gap-4">
         <Field label="Reset token">
           <Input
+            data-testid="reset-password-token"
             defaultValue={initialToken}
             name="token"
             placeholder="Paste reset token"
@@ -57,6 +58,7 @@ export function ResetPasswordForm({ initialToken }: { initialToken?: string }) {
         <Field hint="At least 8 characters" label="New password">
           <Input
             autoComplete="new-password"
+            data-testid="reset-password-new-password"
             minLength={8}
             name="password"
             placeholder="Create a new password"
@@ -64,8 +66,12 @@ export function ResetPasswordForm({ initialToken }: { initialToken?: string }) {
             type="password"
           />
         </Field>
-        {error ? <p className="text-sm text-rose-600">{error}</p> : null}
-        <Button disabled={pending} type="submit">
+        {error ? (
+          <p className="text-sm text-rose-600" data-testid="reset-password-error">
+            {error}
+          </p>
+        ) : null}
+        <Button data-testid="reset-password-submit" disabled={pending} type="submit">
           {pending ? 'Updating password...' : 'Reset password'}
         </Button>
       </form>

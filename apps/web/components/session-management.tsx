@@ -81,13 +81,19 @@ export function SessionManagement({ sessions }: { sessions: SessionSummary[] }) 
   }
 
   return (
-    <div className="grid gap-4">
+    <div className="grid gap-4" data-testid="session-management">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Security state</p>
           <h2 className="mt-2 text-2xl font-black text-slate-950">Active sessions</h2>
         </div>
-        <Button disabled={pendingLogoutAll} onClick={handleLogoutAll} type="button" variant="secondary">
+        <Button
+          data-testid="logout-all-sessions"
+          disabled={pendingLogoutAll}
+          onClick={handleLogoutAll}
+          type="button"
+          variant="secondary"
+        >
           {pendingLogoutAll ? 'Signing out...' : 'Sign out everywhere'}
         </Button>
       </div>
@@ -96,6 +102,9 @@ export function SessionManagement({ sessions }: { sessions: SessionSummary[] }) 
         {sessions.map((session) => (
           <div
             className="grid gap-3 rounded-3xl border border-slate-200 bg-slate-50 p-4 md:grid-cols-[1fr_auto]"
+            data-current={session.isCurrent ? 'true' : 'false'}
+            data-session-id={session.id}
+            data-testid="session-row"
             key={session.id}
           >
             <div className="space-y-2">
@@ -114,6 +123,7 @@ export function SessionManagement({ sessions }: { sessions: SessionSummary[] }) 
             <div className="flex items-start justify-end">
               {session.isCurrent ? (
                 <Button
+                  data-testid="current-session-sign-out"
                   disabled={pendingSessionId !== undefined}
                   onClick={handleCurrentLogout}
                   type="button"
@@ -123,6 +133,7 @@ export function SessionManagement({ sessions }: { sessions: SessionSummary[] }) 
                 </Button>
               ) : (
                 <Button
+                  data-testid="revoke-session"
                   disabled={pendingSessionId !== undefined}
                   onClick={() => handleRevokeSession(session.id)}
                   type="button"
@@ -136,7 +147,7 @@ export function SessionManagement({ sessions }: { sessions: SessionSummary[] }) 
         ))}
       </div>
 
-      {error ? <p className="text-sm text-rose-600">{error}</p> : null}
+      {error ? <p className="text-sm text-rose-600" data-testid="session-management-error">{error}</p> : null}
     </div>
   );
 }

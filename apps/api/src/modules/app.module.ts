@@ -49,8 +49,18 @@ import { UsersController } from './users/users.controller';
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
+    const requestContextMiddleware = new RequestContextMiddleware();
+    const sessionMiddleware = new SessionMiddleware();
+    const originGuardMiddleware = new OriginGuardMiddleware();
+    const csrfMiddleware = new CsrfMiddleware();
+
     consumer
-      .apply(RequestContextMiddleware, SessionMiddleware, OriginGuardMiddleware, CsrfMiddleware)
+      .apply(
+        requestContextMiddleware.use.bind(requestContextMiddleware),
+        sessionMiddleware.use.bind(sessionMiddleware),
+        originGuardMiddleware.use.bind(originGuardMiddleware),
+        csrfMiddleware.use.bind(csrfMiddleware)
+      )
       .forRoutes(AuthController, UsersController, AdminController, ProjectsController, HealthController);
   }
 }

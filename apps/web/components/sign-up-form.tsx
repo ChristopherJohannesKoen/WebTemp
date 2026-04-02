@@ -47,11 +47,18 @@ export function SignUpForm() {
       </div>
       <form action={handleSubmit} className="mt-6 grid gap-4">
         <Field label="Full name">
-          <Input autoComplete="name" name="name" placeholder="Avery Parker" required />
+          <Input
+            autoComplete="name"
+            data-testid="sign-up-name"
+            name="name"
+            placeholder="Avery Parker"
+            required
+          />
         </Field>
         <Field label="Email">
           <Input
             autoComplete="email"
+            data-testid="sign-up-email"
             name="email"
             placeholder="avery@example.com"
             required
@@ -61,6 +68,7 @@ export function SignUpForm() {
         <Field hint="At least 8 characters" label="Password">
           <Input
             autoComplete="new-password"
+            data-testid="sign-up-password"
             minLength={8}
             name="password"
             placeholder="Choose a strong password"
@@ -68,8 +76,8 @@ export function SignUpForm() {
             type="password"
           />
         </Field>
-        {error ? <p className="text-sm text-rose-600">{error}</p> : null}
-        <Button disabled={pending} type="submit">
+        {error ? <p className="text-sm text-rose-600" data-testid="sign-up-error">{error}</p> : null}
+        <Button data-testid="sign-up-submit" disabled={pending} type="submit">
           {pending ? 'Creating account...' : 'Create account'}
         </Button>
       </form>

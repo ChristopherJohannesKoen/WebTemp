@@ -33,7 +33,11 @@ export default async function AdminUsersPage({ searchParams }: { searchParams: S
       </section>
       <div className="grid gap-4">
         {users.items.map((user) => (
-          <Card className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr_260px]" key={user.id}>
+          <Card
+            className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr_260px]"
+            data-testid={`admin-user-${user.email}`}
+            key={user.id}
+          >
             <div className="space-y-2">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge tone={roleTone(user.role)}>{user.role}</Badge>
