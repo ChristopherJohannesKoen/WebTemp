@@ -5,7 +5,7 @@ import { getProjects, requireCurrentUser } from '../../lib/server-api';
 
 export default async function DashboardPage() {
   const currentUser = await requireCurrentUser();
-  const projects = await getProjects('page=1&pageSize=4');
+  const projects = await getProjects('limit=4');
 
   return (
     <div className="grid gap-6">
@@ -46,8 +46,13 @@ export default async function DashboardPage() {
       <section className="grid gap-4 md:grid-cols-3">
         <Card>
           <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Projects</p>
-          <p className="mt-4 text-4xl font-black text-slate-950">{projects.total}</p>
-          <p className="mt-2 text-sm text-slate-600">Tracked across the reference CRUD workflow.</p>
+          <p className="mt-4 text-4xl font-black text-slate-950">
+            {projects.items.length}
+            {projects.hasMore ? '+' : ''}
+          </p>
+          <p className="mt-2 text-sm text-slate-600">
+            Recent records loaded through the cursor-based reference workflow.
+          </p>
         </Card>
         <Card>
           <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Role</p>

@@ -25,7 +25,7 @@ export function SignUpForm() {
           email: formData.get('email'),
           password: formData.get('password')
         })
-      });
+      }, { idempotent: true });
 
       router.push('/app');
       router.refresh();

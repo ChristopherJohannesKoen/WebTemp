@@ -32,8 +32,7 @@ describe('shared contracts', () => {
 
     expect(query).toMatchObject({
       includeArchived: false,
-      page: 1,
-      pageSize: 10
+      limit: 12
     });
   });
 

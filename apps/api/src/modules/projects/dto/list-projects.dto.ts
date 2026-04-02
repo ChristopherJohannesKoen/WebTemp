@@ -20,18 +20,16 @@ export class ListProjectsDto {
   @IsBoolean()
   includeArchived = false;
 
-  @ApiPropertyOptional({ default: 1 })
+  @ApiPropertyOptional({ description: 'Opaque cursor from the previous page.' })
   @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  page = 1;
+  @IsString()
+  cursor?: string;
 
-  @ApiPropertyOptional({ default: 10 })
+  @ApiPropertyOptional({ default: 12 })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
   @Max(50)
-  pageSize = 10;
+  limit = 12;
 }

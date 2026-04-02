@@ -34,6 +34,9 @@ export function ProjectForm({ mode, project }: ProjectFormProps) {
         {
           method: project ? 'PATCH' : 'POST',
           body: JSON.stringify(payload)
+        },
+        {
+          idempotent: !project
         }
       );
 

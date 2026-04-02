@@ -1,4 +1,5 @@
 import 'reflect-metadata';
+import { ForbiddenException } from '@nestjs/common';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ProjectsService } from '../src/modules/projects/projects.service';
 
@@ -6,12 +7,26 @@ const auditService = {
   log: vi.fn()
 };
 
+const configService = {
+  get: vi.fn((key: string, defaultValue?: string) => {
+    if (key === 'EXPORT_SYNC_LIMIT') {
+      return '5000';
+    }
+
+    return defaultValue;
+  })
+};
+
+const projectPolicyService = {
+  assertCanMutateProject: vi.fn().mockResolvedValue(undefined)
+};
+
 const creator = {
   id: 'user_owner',
   email: 'owner@example.com',
   name: 'Owner User',
   role: 'owner'
-};
+} as const;
 
 function createProjectRecord(overrides: Partial<Record<string, unknown>> = {}) {
   return {
@@ -20,6 +35,7 @@ function createProjectRecord(overrides: Partial<Record<string, unknown>> = {}) {
     description: 'Template-friendly project',
     status: 'active',
     isArchived: false,
+    creatorId: creator.id,
     createdAt: new Date('2026-04-01T12:00:00.000Z'),
     updatedAt: new Date('2026-04-02T12:00:00.000Z'),
     creator,
@@ -32,55 +48,63 @@ describe('ProjectsService', () => {
     vi.clearAllMocks();
   });
 
-  it('lists paginated projects', async () => {
+  it('lists cursor-paginated projects', async () => {
     const prismaService = {
       project: {
-        count: vi.fn().mockResolvedValue(1),
         findMany: vi.fn().mockResolvedValue([createProjectRecord()])
-      },
-      $transaction: vi.fn().mockResolvedValue([1, [createProjectRecord()]])
+      }
     };
 
-    const service = new ProjectsService(prismaService as never, auditService as never);
+    const service = new ProjectsService(
+      prismaService as never,
+      configService as never,
+      auditService as never,
+      projectPolicyService as never
+    );
     const result = await service.listProjects({
-      page: 1,
-      pageSize: 10,
+      limit: 10,
       includeArchived: false
     });
 
-    expect(result.total).toBe(1);
+    expect(result.hasMore).toBe(false);
+    expect(result.nextCursor).toBeNull();
     expect(result.items[0]?.creator.email).toBe('owner@example.com');
   });
 
-  it('exports projects as CSV', async () => {
+  it('streams projects as CSV', async () => {
     const prismaService = {
       project: {
         count: vi.fn().mockResolvedValue(1),
-        findMany: vi.fn().mockResolvedValue([
-          createProjectRecord({
-            description: 'Handles "quotes" and commas, too.'
-          })
-        ])
-      },
-      $transaction: vi.fn().mockResolvedValue([
-        1,
-        [
-          createProjectRecord({
-            description: 'Handles "quotes" and commas, too.'
-          })
-        ]
-      ])
+        findMany: vi
+          .fn()
+          .mockResolvedValueOnce([
+            createProjectRecord({
+              description: 'Handles "quotes" and commas, too.'
+            })
+          ])
+          .mockResolvedValueOnce([])
+      }
     };
 
-    const service = new ProjectsService(prismaService as never, auditService as never);
-    const csv = await service.exportProjects({
-      page: 1,
-      pageSize: 10,
+    const response = {
+      write: vi.fn(),
+      end: vi.fn()
+    };
+
+    const service = new ProjectsService(
+      prismaService as never,
+      configService as never,
+      auditService as never,
+      projectPolicyService as never
+    );
+
+    await service.exportProjects(response as never, {
+      limit: 10,
       includeArchived: false
     });
 
-    expect(csv).toContain('"Handles ""quotes"" and commas, too."');
-    expect(csv).toContain('"owner@example.com"');
+    expect(response.write).toHaveBeenCalledWith(expect.stringContaining('"owner@example.com"'));
+    expect(response.end).toHaveBeenCalledTimes(1);
   });
 
   it('logs archive actions when a project is archived', async () => {
@@ -91,7 +115,12 @@ describe('ProjectsService', () => {
       }
     };
 
-    const service = new ProjectsService(prismaService as never, auditService as never);
+    const service = new ProjectsService(
+      prismaService as never,
+      configService as never,
+      auditService as never,
+      projectPolicyService as never
+    );
 
     await service.updateProject(
       {
@@ -112,5 +141,40 @@ describe('ProjectsService', () => {
         targetId: 'project_1'
       })
     );
+  });
+
+  it('rejects member writes to another member project', async () => {
+    projectPolicyService.assertCanMutateProject.mockRejectedValueOnce(
+      new ForbiddenException('You do not have permission to modify this project.')
+    );
+
+    const prismaService = {
+      project: {
+        findUnique: vi.fn().mockResolvedValue(
+          createProjectRecord({
+            creatorId: 'someone_else'
+          })
+        )
+      }
+    };
+
+    const service = new ProjectsService(
+      prismaService as never,
+      configService as never,
+      auditService as never,
+      projectPolicyService as never
+    );
+
+    await expect(
+      service.deleteProject(
+        {
+          id: 'user_member',
+          email: 'member@example.com',
+          name: 'Member User',
+          role: 'member'
+        },
+        'project_1'
+      )
+    ).rejects.toBeInstanceOf(ForbiddenException);
   });
 });

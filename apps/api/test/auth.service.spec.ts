@@ -1,5 +1,5 @@
 import 'reflect-metadata';
-import { UnauthorizedException } from '@nestjs/common';
+import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import argon2 from 'argon2';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthService } from '../src/modules/auth/auth.service';
@@ -7,6 +7,19 @@ import { AuthService } from '../src/modules/auth/auth.service';
 function createConfigService(overrides: Record<string, string> = {}) {
   return {
     get: vi.fn((key: string, defaultValue?: string) => overrides[key] ?? defaultValue)
+  };
+}
+
+function createTransactionalPrisma(transaction: Record<string, unknown>) {
+  return {
+    ...transaction,
+    $transaction: vi.fn(async (callback: unknown) => {
+      if (typeof callback === 'function') {
+        return callback(transaction);
+      }
+
+      return callback;
+    })
   };
 }
 
@@ -19,8 +32,8 @@ describe('AuthService', () => {
     vi.clearAllMocks();
   });
 
-  it('creates the first account as owner and opens a session', async () => {
-    const prismaService = {
+  it('creates the first account as owner and opens a capped session', async () => {
+    const transaction = {
       user: {
         findUnique: vi.fn().mockResolvedValue(undefined),
         count: vi.fn().mockResolvedValue(0),
@@ -33,14 +46,17 @@ describe('AuthService', () => {
         })
       },
       session: {
-        create: vi.fn().mockResolvedValue(undefined)
+        create: vi.fn().mockResolvedValue(undefined),
+        findMany: vi.fn().mockResolvedValue([]),
+        deleteMany: vi.fn().mockResolvedValue({ count: 0 })
       }
     };
 
     const service = new AuthService(
-      prismaService as never,
+      createTransactionalPrisma(transaction) as never,
       createConfigService({
         ARGON2_MEMORY_COST: '1024',
+        SESSION_MAX_ACTIVE: '5',
         SESSION_COOKIE_NAME: 'test_session'
       }) as never,
       auditService as never
@@ -60,7 +76,7 @@ describe('AuthService', () => {
 
     expect(result.user.role).toBe('owner');
     expect(result.token).toHaveLength(64);
-    expect(prismaService.session.create).toHaveBeenCalledTimes(1);
+    expect(transaction.session.create).toHaveBeenCalledTimes(1);
     expect(auditService.log).toHaveBeenCalledWith(
       expect.objectContaining({
         action: 'auth.signup',
@@ -173,5 +189,32 @@ describe('AuthService', () => {
     expect(prismaService.session.delete).toHaveBeenCalledWith({
       where: { id: 'session_1' }
     });
+  });
+
+  it('requires a matching CSRF token for authenticated mutations', () => {
+    const service = new AuthService(
+      {} as never,
+      createConfigService({
+        ARGON2_MEMORY_COST: '1024'
+      }) as never,
+      auditService as never
+    );
+
+    expect(() =>
+      service.assertCsrfToken(
+        {
+          id: 'session_1',
+          userId: 'user_member',
+          csrfTokenHash: 'invalid',
+          expiresAt: new Date(),
+          createdAt: new Date(),
+          lastUsedAt: new Date(),
+          lastRotatedAt: new Date(),
+          ipAddress: null,
+          userAgent: null
+        },
+        'raw-token'
+      )
+    ).toThrow(ForbiddenException);
   });
 });

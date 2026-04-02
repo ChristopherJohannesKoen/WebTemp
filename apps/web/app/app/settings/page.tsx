@@ -1,10 +1,12 @@
 import { Badge, Card } from '@packages/ui';
 import { ProfileForm } from '../../../components/profile-form';
+import { SessionManagement } from '../../../components/session-management';
 import { roleTone } from '../../../lib/display';
-import { getUserProfile } from '../../../lib/server-api';
+import { getSessions, getUserProfile } from '../../../lib/server-api';
 
 export default async function SettingsPage() {
   const user = await getUserProfile();
+  const sessions = await getSessions();
 
   return (
     <div className="grid gap-6">
@@ -18,6 +20,9 @@ export default async function SettingsPage() {
       </section>
       <Card>
         <ProfileForm user={user} />
+      </Card>
+      <Card>
+        <SessionManagement sessions={sessions.items} />
       </Card>
     </div>
   );

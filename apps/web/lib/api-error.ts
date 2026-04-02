@@ -1,7 +1,8 @@
 export type ApiErrorPayload = {
   statusCode?: number;
   message?: string;
-  errors?: Array<{ field: string; message: string }>;
+  requestId?: string;
+  errors?: Array<{ field: string; code: string; message: string }>;
 };
 
 function isApiErrorPayload(value: unknown): value is ApiErrorPayload {
@@ -16,7 +17,8 @@ export class ApiRequestError extends Error {
   constructor(
     message: string,
     public readonly statusCode: number,
-    public readonly errors: Array<{ field: string; message: string }> = []
+    public readonly errors: Array<{ field: string; code: string; message: string }> = [],
+    public readonly requestId?: string
   ) {
     super(message);
   }
@@ -41,7 +43,8 @@ export async function parseApiResponse<T>(response: Response) {
     throw new ApiRequestError(
       errorPayload.message ?? 'Request failed.',
       errorPayload.statusCode ?? response.status,
-      errorPayload.errors ?? []
+      errorPayload.errors ?? [],
+      errorPayload.requestId
     );
   }
 

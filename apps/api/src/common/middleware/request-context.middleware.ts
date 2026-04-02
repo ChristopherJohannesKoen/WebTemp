@@ -19,9 +19,12 @@ export class RequestContextMiddleware implements NestMiddleware {
           requestId,
           method: request.method,
           path: request.originalUrl,
+          route: request.route?.path ?? null,
           statusCode: response.statusCode,
           durationMs: Date.now() - startedAt,
-          userId: request.currentUser?.id ?? null
+          actorId: request.currentUser?.id ?? null,
+          ipAddress: request.ip ?? null,
+          userAgent: request.header('user-agent') ?? null
         })
       );
     });

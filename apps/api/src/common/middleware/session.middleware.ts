@@ -11,7 +11,7 @@ export class SessionMiddleware implements NestMiddleware {
     private readonly configService: ConfigService
   ) {}
 
-  async use(request: AuthenticatedRequest, _: Response, next: NextFunction) {
+  async use(request: AuthenticatedRequest, response: Response, next: NextFunction) {
     const cookieName = this.configService.get<string>(
       'SESSION_COOKIE_NAME',
       'ultimate_template_session'
@@ -24,7 +24,25 @@ export class SessionMiddleware implements NestMiddleware {
     }
 
     request.sessionToken = token;
-    request.currentUser = await this.authService.getSessionUserFromToken(token);
+    const sessionContext = await this.authService.getSessionContextFromToken(token, {
+      ipAddress: request.ip,
+      userAgent: request.header('user-agent')
+    });
+
+    if (sessionContext) {
+      request.currentUser = sessionContext.user;
+      request.currentSession = sessionContext.session;
+
+      if (sessionContext.rotatedToken) {
+        request.sessionToken = sessionContext.rotatedToken;
+        response.cookie(
+          this.authService.getCookieName(),
+          sessionContext.rotatedToken,
+          this.authService.getCookieOptions(sessionContext.session.expiresAt)
+        );
+      }
+    }
+
     next();
   }
 }

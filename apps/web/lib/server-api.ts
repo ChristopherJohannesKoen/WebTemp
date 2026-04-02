@@ -4,12 +4,35 @@ import type {
   AuthResponse,
   Project,
   ProjectListResponse,
+  SessionListResponse,
   UserListResponse,
   UserSummary
 } from '@packages/shared';
 import { parseApiResponse } from './api-error';
 
 const apiOrigin = process.env.API_ORIGIN ?? 'http://localhost:4000';
+
+function getFetchOptions(path: string, init?: RequestInit) {
+  const method = init?.method?.toUpperCase() ?? 'GET';
+
+  if (method !== 'GET') {
+    return { cache: 'no-store' as const };
+  }
+
+  if (
+    path.startsWith('/auth/me') ||
+    path.startsWith('/auth/sessions') ||
+    path.startsWith('/users/me')
+  ) {
+    return { cache: 'no-store' as const };
+  }
+
+  return {
+    next: {
+      revalidate: 30
+    }
+  };
+}
 
 async function serverApiRequest<T>(path: string, init?: RequestInit) {
   const cookieStore = await cookies();
@@ -25,7 +48,7 @@ async function serverApiRequest<T>(path: string, init?: RequestInit) {
 
   const response = await fetch(`${apiOrigin}/api${path}`, {
     ...init,
-    cache: 'no-store',
+    ...getFetchOptions(path, init),
     headers
   });
 
@@ -65,4 +88,8 @@ export async function getUsers(query = '') {
 
 export async function getUserProfile() {
   return serverApiRequest<UserSummary>('/users/me');
+}
+
+export async function getSessions() {
+  return serverApiRequest<SessionListResponse>('/auth/sessions');
 }

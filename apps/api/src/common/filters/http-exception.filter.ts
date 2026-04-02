@@ -1,5 +1,6 @@
 import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus } from '@nestjs/common';
 import type { Response } from 'express';
+import type { ApiError } from '@packages/shared';
 import type { AuthenticatedRequest } from '../types/authenticated-request';
 
 @Catch()
@@ -15,7 +16,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const exceptionResponse = exception instanceof HttpException ? exception.getResponse() : null;
 
     let message = 'Internal server error';
-    let errors: Array<{ field: string; message: string }> = [];
+    let errors: ApiError['errors'] = [];
 
     if (typeof exceptionResponse === 'string') {
       message = exceptionResponse;
@@ -23,12 +24,17 @@ export class HttpExceptionFilter implements ExceptionFilter {
       const responseObject = exceptionResponse as {
         message?: string | string[];
         error?: string;
+        errors?: ApiError['errors'];
       };
 
-      if (Array.isArray(responseObject.message)) {
+      if (responseObject.errors) {
+        message = typeof responseObject.message === 'string' ? responseObject.message : 'Validation failed';
+        errors = responseObject.errors;
+      } else if (Array.isArray(responseObject.message)) {
         message = 'Validation failed';
         errors = responseObject.message.map((entry) => ({
           field: 'request',
+          code: 'invalid',
           message: entry
         }));
       } else if (responseObject.message) {

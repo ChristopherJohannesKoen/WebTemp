@@ -24,7 +24,7 @@ export function ResetPasswordForm({ initialToken }: { initialToken?: string }) {
           token: formData.get('token'),
           password: formData.get('password')
         })
-      });
+      }, { idempotent: true });
 
       router.push('/app');
       router.refresh();

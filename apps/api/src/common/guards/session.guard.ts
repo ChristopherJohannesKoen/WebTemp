@@ -5,7 +5,7 @@ export class SessionGuard implements CanActivate {
   canActivate(context: ExecutionContext) {
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
 
-    if (!request.currentUser) {
+    if (!request.currentUser || !request.currentSession) {
       throw new UnauthorizedException('Authentication required.');
     }
 

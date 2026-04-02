@@ -1,11 +1,14 @@
 import 'reflect-metadata';
-import { ValidationPipe } from '@nestjs/common';
+import { BadRequestException, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import type { ValidationError } from 'class-validator';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
+import { getAllowedOrigins } from './common/config/allowed-origins';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { flattenValidationErrors } from './common/validation/validation-errors';
 import { AppModule } from './modules/app.module';
 import { PrismaService } from './modules/prisma/prisma.service';
 
@@ -15,20 +18,27 @@ async function bootstrap() {
   app.use(helmet());
   app.useGlobalFilters(new HttpExceptionFilter());
   app.useGlobalPipes(
-    new ValidationPipe({ whitelist: true, transform: true, forbidNonWhitelisted: true })
+    new ValidationPipe({
+      whitelist: true,
+      transform: true,
+      forbidNonWhitelisted: true,
+      exceptionFactory: (validationErrors: ValidationError[]) =>
+        new BadRequestException({
+          message: 'Validation failed',
+          errors: flattenValidationErrors(validationErrors)
+        })
+    })
   );
 
   const configService = app.get(ConfigService);
   const apiPrefix = configService.get<string>('API_PREFIX', 'api');
-  const appUrl = configService.get<string>('APP_URL', 'http://localhost:3000');
-  const apiOrigin = configService.get<string>('API_ORIGIN', 'http://localhost:4000');
   const sessionCookieName = configService.get<string>(
     'SESSION_COOKIE_NAME',
     'ultimate_template_session'
   );
 
   app.enableCors({
-    origin: [appUrl, apiOrigin],
+    origin: getAllowedOrigins(configService),
     credentials: true
   });
   app.setGlobalPrefix(apiPrefix);

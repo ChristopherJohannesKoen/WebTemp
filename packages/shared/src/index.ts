@@ -10,8 +10,11 @@ export const AuditActionSchema = z.enum([
   'auth.signup',
   'auth.login',
   'auth.logout',
+  'auth.session_revoked',
+  'auth.logout_all',
   'auth.password_reset_requested',
   'auth.password_reset_completed',
+  'authz.denied',
   'user.profile_updated',
   'user.role_updated',
   'project.created',
@@ -32,13 +35,15 @@ export type SessionUser = z.infer<typeof SessionUserSchema>;
 
 export const ApiValidationErrorSchema = z.object({
   field: z.string(),
+  code: z.string(),
   message: z.string()
 });
 
 export const ApiErrorSchema = z.object({
   statusCode: z.number(),
   message: z.string(),
-  errors: z.array(ApiValidationErrorSchema).default([])
+  errors: z.array(ApiValidationErrorSchema).default([]),
+  requestId: z.string().optional()
 });
 export type ApiError = z.infer<typeof ApiErrorSchema>;
 
@@ -77,6 +82,11 @@ export const AuthResponseSchema = z.object({
 });
 export type AuthResponse = z.infer<typeof AuthResponseSchema>;
 
+export const CsrfResponseSchema = z.object({
+  csrfToken: z.string().min(32)
+});
+export type CsrfResponse = z.infer<typeof CsrfResponseSchema>;
+
 export const ForgotPasswordResponseSchema = z.object({
   message: z.string(),
   resetToken: z.string().optional(),
@@ -99,6 +109,22 @@ export const UpdateRolePayloadSchema = z.object({
   role: RoleSchema
 });
 export type UpdateRolePayload = z.infer<typeof UpdateRolePayloadSchema>;
+
+export const SessionSummarySchema = z.object({
+  id: z.string(),
+  ipAddress: z.string().nullable(),
+  userAgent: z.string().nullable(),
+  createdAt: z.string(),
+  lastUsedAt: z.string(),
+  expiresAt: z.string(),
+  isCurrent: z.boolean()
+});
+export type SessionSummary = z.infer<typeof SessionSummarySchema>;
+
+export const SessionListResponseSchema = z.object({
+  items: z.array(SessionSummarySchema)
+});
+export type SessionListResponse = z.infer<typeof SessionListResponseSchema>;
 
 export const ProjectSchema = z.object({
   id: z.string(),
@@ -129,8 +155,8 @@ export const ProjectListQuerySchema = z.object({
   search: z.string().trim().optional(),
   status: ProjectStatusSchema.optional(),
   includeArchived: z.boolean().optional().default(false),
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(50).default(10)
+  cursor: z.string().optional(),
+  limit: z.coerce.number().int().min(1).max(50).default(12)
 });
 export type ProjectListQuery = z.infer<typeof ProjectListQuerySchema>;
 
@@ -142,7 +168,14 @@ export const PaginatedListSchema = <T extends z.ZodTypeAny>(itemSchema: T) =>
     total: z.number().int().min(0)
   });
 
-export const ProjectListResponseSchema = PaginatedListSchema(ProjectSchema);
+export const CursorListSchema = <T extends z.ZodTypeAny>(itemSchema: T) =>
+  z.object({
+    items: z.array(itemSchema),
+    nextCursor: z.string().nullable(),
+    hasMore: z.boolean()
+  });
+
+export const ProjectListResponseSchema = CursorListSchema(ProjectSchema);
 export type ProjectListResponse = z.infer<typeof ProjectListResponseSchema>;
 
 export const UserListResponseSchema = PaginatedListSchema(UserSummarySchema);

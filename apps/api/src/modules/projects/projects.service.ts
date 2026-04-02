@@ -1,76 +1,140 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import type { SessionUser } from '@packages/shared';
-import { Prisma, ProjectStatus } from '@prisma/client';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import type { Response } from 'express';
+import type { ProjectListResponse, SessionUser } from '@packages/shared';
+import { ConfigService } from '@nestjs/config';
+import { Prisma, ProjectStatus, Role } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { decodeProjectCursor, encodeProjectCursor } from './project-cursor';
+import { ProjectPolicyService } from './project-policy.service';
 import type { CreateProjectDto } from './dto/create-project.dto';
 import type { ListProjectsDto } from './dto/list-projects.dto';
 import type { UpdateProjectDto } from './dto/update-project.dto';
+
+type ProjectRecord = {
+  id: string;
+  name: string;
+  description: string | null;
+  status: ProjectStatus;
+  isArchived: boolean;
+  creatorId: string;
+  createdAt: Date;
+  updatedAt: Date;
+  creator: {
+    id: string;
+    email: string;
+    name: string;
+    role: Role;
+  };
+};
 
 @Injectable()
 export class ProjectsService {
   constructor(
     private readonly prismaService: PrismaService,
-    private readonly auditService: AuditService
+    private readonly configService: ConfigService,
+    private readonly auditService: AuditService,
+    private readonly projectPolicyService: ProjectPolicyService
   ) {}
 
-  async listProjects(query: ListProjectsDto) {
-    const where: Prisma.ProjectWhereInput = {
-      ...(query.includeArchived ? {} : { isArchived: false }),
-      ...(query.status ? { status: query.status } : {}),
-      ...(query.search
-        ? {
-            OR: [
-              { name: { contains: query.search, mode: 'insensitive' } },
-              { description: { contains: query.search, mode: 'insensitive' } }
-            ]
-          }
-        : {})
-    };
+  async listProjects(query: ListProjectsDto): Promise<ProjectListResponse> {
+    const cursor = decodeProjectCursor(query.cursor);
+    const pageSize = query.limit;
+    const items = await this.prismaService.project.findMany({
+      where: this.buildProjectWhere(query, cursor),
+      include: { creator: true },
+      orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
+      take: pageSize + 1
+    });
 
-    const [total, items] = await this.prismaService.$transaction([
-      this.prismaService.project.count({ where }),
-      this.prismaService.project.findMany({
-        where,
-        include: { creator: true },
-        orderBy: { updatedAt: 'desc' },
-        skip: (query.page - 1) * query.pageSize,
-        take: query.pageSize
-      })
-    ]);
+    const hasMore = items.length > pageSize;
+    const pageItems = hasMore ? items.slice(0, pageSize) : items;
+    const lastItem = pageItems.at(-1);
 
     return {
-      items: items.map((project) => this.serializeProject(project)),
-      page: query.page,
-      pageSize: query.pageSize,
-      total
+      items: pageItems.map((project) => this.serializeProject(project)),
+      nextCursor:
+        hasMore && lastItem
+          ? encodeProjectCursor({
+              id: lastItem.id,
+              updatedAt: lastItem.updatedAt
+            })
+          : null,
+      hasMore
     };
   }
 
-  async exportProjects(query: ListProjectsDto) {
-    const data = await this.listProjects({
-      ...query,
-      page: 1,
-      pageSize: 500
+  async exportProjects(response: Response, query: ListProjectsDto) {
+    const total = await this.prismaService.project.count({
+      where: this.buildProjectWhere({
+        ...query,
+        cursor: undefined
+      })
     });
 
-    const rows = [
-      ['id', 'name', 'status', 'archived', 'creatorEmail', 'createdAt', 'updatedAt', 'description'],
-      ...data.items.map((project) => [
-        project.id,
-        project.name,
-        project.status,
-        String(project.isArchived),
-        project.creator.email,
-        project.createdAt,
-        project.updatedAt,
-        project.description ?? ''
-      ])
-    ];
+    if (total > this.getExportSyncLimit()) {
+      throw new BadRequestException(
+        `Filtered export exceeds the synchronous export limit of ${this.getExportSyncLimit()} rows. Narrow the filters or add async exports.`
+      );
+    }
 
-    return rows
-      .map((row) => row.map((value) => `"${String(value).replaceAll('"', '""')}"`).join(','))
-      .join('\n');
+    response.write(
+      ['id', 'name', 'status', 'archived', 'creatorEmail', 'createdAt', 'updatedAt', 'description']
+        .map((value) => this.escapeCsvCell(value))
+        .join(',') + '\n'
+    );
+
+    let cursor = undefined as { id: string; updatedAt: Date } | undefined;
+    const batchSize = 250;
+
+    while (true) {
+      const batch = await this.prismaService.project.findMany({
+        where: this.buildProjectWhere(
+          {
+            ...query,
+            cursor: undefined,
+            limit: batchSize
+          },
+          cursor
+        ),
+        include: { creator: true },
+        orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
+        take: batchSize
+      });
+
+      if (batch.length === 0) {
+        break;
+      }
+
+      for (const project of batch) {
+        response.write(
+          [
+            project.id,
+            project.name,
+            project.status,
+            String(project.isArchived),
+            project.creator.email,
+            project.createdAt.toISOString(),
+            project.updatedAt.toISOString(),
+            project.description ?? ''
+          ]
+            .map((value) => this.escapeCsvCell(value))
+            .join(',') + '\n'
+        );
+      }
+
+      if (batch.length < batchSize) {
+        break;
+      }
+
+      const lastProject = batch.at(-1)!;
+      cursor = {
+        id: lastProject.id,
+        updatedAt: lastProject.updatedAt
+      };
+    }
+
+    response.end();
   }
 
   async getProject(projectId: string) {
@@ -116,6 +180,12 @@ export class ProjectsService {
       throw new NotFoundException('Project not found.');
     }
 
+    await this.projectPolicyService.assertCanMutateProject(
+      currentUser,
+      existingProject,
+      dto.isArchived === undefined ? 'update' : 'archive'
+    );
+
     const project = await this.prismaService.project.update({
       where: { id: projectId },
       data: {
@@ -153,6 +223,8 @@ export class ProjectsService {
       throw new NotFoundException('Project not found.');
     }
 
+    await this.projectPolicyService.assertCanMutateProject(currentUser, project, 'delete');
+
     await this.prismaService.project.delete({
       where: { id: projectId }
     });
@@ -167,21 +239,66 @@ export class ProjectsService {
     return { ok: true };
   }
 
-  private serializeProject(project: {
-    id: string;
-    name: string;
-    description: string | null;
-    status: ProjectStatus;
-    isArchived: boolean;
-    createdAt: Date;
-    updatedAt: Date;
-    creator: {
-      id: string;
-      email: string;
-      name: string;
-      role: string;
+  private buildProjectWhere(
+    query: Pick<ListProjectsDto, 'includeArchived' | 'search' | 'status'> & {
+      cursor?: string | undefined;
+      limit?: number;
+    },
+    cursor = decodeProjectCursor(query.cursor)
+  ): Prisma.ProjectWhereInput {
+    const clauses: Prisma.ProjectWhereInput[] = [];
+
+    if (!query.includeArchived) {
+      clauses.push({ isArchived: false });
+    }
+
+    if (query.status) {
+      clauses.push({ status: query.status });
+    }
+
+    if (query.search?.trim()) {
+      clauses.push({
+        OR: [
+          { name: { contains: query.search.trim(), mode: 'insensitive' } },
+          { description: { contains: query.search.trim(), mode: 'insensitive' } }
+        ]
+      });
+    }
+
+    if (cursor) {
+      clauses.push({
+        OR: [
+          { updatedAt: { lt: cursor.updatedAt } },
+          {
+            updatedAt: cursor.updatedAt,
+            id: { lt: cursor.id }
+          }
+        ]
+      });
+    }
+
+    if (clauses.length === 0) {
+      return {};
+    }
+
+    if (clauses.length === 1) {
+      return clauses[0] ?? {};
+    }
+
+    return {
+      AND: clauses
     };
-  }) {
+  }
+
+  private escapeCsvCell(value: string) {
+    return `"${value.replaceAll('"', '""')}"`;
+  }
+
+  private getExportSyncLimit() {
+    return Number(this.configService.get<string>('EXPORT_SYNC_LIMIT', '5000'));
+  }
+
+  private serializeProject(project: ProjectRecord) {
     return {
       id: project.id,
       name: project.name,

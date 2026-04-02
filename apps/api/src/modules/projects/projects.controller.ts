@@ -3,19 +3,26 @@ import {
   Controller,
   Delete,
   Get,
-  Header,
   Param,
   Patch,
   Post,
   Query,
   Res,
-  UseGuards
+  UseGuards,
+  UseInterceptors
 } from '@nestjs/common';
-import { ApiCookieAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiCookieAuth,
+  ApiHeader,
+  ApiOperation,
+  ApiProduces,
+  ApiTags
+} from '@nestjs/swagger';
 import type { Response } from 'express';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { SessionGuard } from '../../common/guards/session.guard';
 import type { AuthenticatedRequest } from '../../common/types/authenticated-request';
+import { IdempotencyInterceptor } from '../idempotency/idempotency.interceptor';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { ListProjectsDto } from './dto/list-projects.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
@@ -35,12 +42,12 @@ export class ProjectsController {
   }
 
   @Get('export.csv')
-  @Header('Content-Type', 'text/csv')
-  @Header('Content-Disposition', 'attachment; filename="projects.csv"')
+  @ApiProduces('text/csv')
   @ApiOperation({ summary: 'Export filtered projects as CSV' })
-  exportProjects(@Query() query: ListProjectsDto, @Res({ passthrough: true }) response: Response) {
-    void response;
-    return this.projectsService.exportProjects(query);
+  async exportProjects(@Query() query: ListProjectsDto, @Res() response: Response) {
+    response.setHeader('Content-Type', 'text/csv');
+    response.setHeader('Content-Disposition', 'attachment; filename="projects.csv"');
+    await this.projectsService.exportProjects(response, query);
   }
 
   @Get(':id')
@@ -50,6 +57,8 @@ export class ProjectsController {
   }
 
   @Post()
+  @UseInterceptors(IdempotencyInterceptor)
+  @ApiHeader({ name: 'Idempotency-Key', required: true })
   @ApiOperation({ summary: 'Create a new project' })
   createProject(
     @CurrentUser() currentUser: NonNullable<AuthenticatedRequest['currentUser']>,

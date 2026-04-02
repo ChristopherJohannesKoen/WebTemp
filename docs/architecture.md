@@ -8,16 +8,16 @@ This repository is a reusable single-tenant SaaS starter. It is intentionally op
 
 - `apps/web` renders the public marketing shell and authenticated dashboard.
 - `apps/web` proxies `/api/*` requests to Nest through the server-side `API_ORIGIN` variable.
-- `apps/api` exposes REST endpoints under `/api`, serves Swagger at `/api/docs`, and manages auth, RBAC, auditing, and projects.
+- `apps/api` exposes REST endpoints under `/api`, serves Swagger at `/api/docs`, and manages auth, CSRF, idempotency, RBAC, auditing, and projects.
 - `packages/db` owns Prisma schema, migrations, and seed data.
 - `Postgres` is the only required backing service in v1.
 
 ## Product Modules
 
-- `AuthModule`: signup, login, logout, forgot-password, reset-password, cookie sessions
+- `AuthModule`: signup, login, logout, logout-all, session revocation, forgot-password, reset-password, cookie sessions, CSRF token issuing
 - `UsersModule`: current-user profile read/update
 - `AdminModule`: user listing and owner-only role changes
-- `ProjectsModule`: the reference CRUD slice
+- `ProjectsModule`: the reference CRUD slice with cursor pagination and explicit write policy checks
 - `AuditModule`: append-only audit trail for auth, role, and project lifecycle events
 - `HealthModule`: application and database status
 
@@ -25,8 +25,11 @@ This repository is a reusable single-tenant SaaS starter. It is intentionally op
 
 - Argon2id password hashing
 - secure, HTTP-only session cookies
+- synchronizer-token CSRF protection for authenticated unsafe routes
+- idempotency protection for critical POST endpoints
+- session rotation and per-user session caps
 - owner/admin/member global roles
-- origin checks for mutating requests
+- origin checks for mutating requests as secondary defense
 - throttling via Nest throttler
 - structured request IDs and audit records
 - validation-first request handling with class-validator and a shared JSON error envelope
@@ -37,12 +40,13 @@ This repository is a reusable single-tenant SaaS starter. It is intentionally op
 
 - role enums
 - auth payloads
+- session and CSRF DTOs
 - project DTOs
-- paginated response shapes
+- cursor and paginated response shapes
 - API error structures
 
 The web app and API both rely on these schemas so UI and server drift is reduced.
 
 ## Extension Strategy
 
-The default template intentionally avoids hard dependencies on Redis, object storage, email delivery, worker orchestration, and observability collectors. Optional infrastructure is scaffolded in `infra/compose` and documented as extension slots rather than mandatory runtime components.
+The default template intentionally avoids hard dependencies on Redis, object storage, email delivery, worker orchestration, and observability collectors. Optional infrastructure is scaffolded in `infra/compose`, feature-gated through env validation, and documented as extension slots rather than mandatory runtime components.

@@ -11,33 +11,43 @@ function getSingleValue(value: string | string[] | undefined) {
 
 export default async function ProjectsPage({ searchParams }: { searchParams: SearchParams }) {
   const resolvedSearchParams = await searchParams;
-  const params = new URLSearchParams();
   const search = getSingleValue(resolvedSearchParams.search) ?? '';
   const status = getSingleValue(resolvedSearchParams.status) ?? '';
   const includeArchived = getSingleValue(resolvedSearchParams.includeArchived) === 'true';
-  const page = getSingleValue(resolvedSearchParams.page) ?? '1';
+  const cursor = getSingleValue(resolvedSearchParams.cursor) ?? '';
+  const trail = getSingleValue(resolvedSearchParams.trail) ?? '';
+  const trailEntries = trail ? trail.split(',').filter(Boolean) : [];
 
-  if (search) params.set('search', search);
-  if (status) params.set('status', status);
-  if (includeArchived) params.set('includeArchived', 'true');
-  params.set('page', page);
-  params.set('pageSize', '12');
+  const queryParams = new URLSearchParams();
+  if (search) queryParams.set('search', search);
+  if (status) queryParams.set('status', status);
+  if (includeArchived) queryParams.set('includeArchived', 'true');
+  if (cursor) queryParams.set('cursor', cursor);
+  queryParams.set('limit', '12');
 
-  const projects = await getProjects(params.toString());
-  const currentPage = Number(page) || 1;
-  const totalPages = Math.max(1, Math.ceil(projects.total / projects.pageSize));
+  const filterParams = new URLSearchParams();
+  if (search) filterParams.set('search', search);
+  if (status) filterParams.set('status', status);
+  if (includeArchived) filterParams.set('includeArchived', 'true');
 
-  const previousParams = new URLSearchParams(params);
-  previousParams.set('page', String(Math.max(1, currentPage - 1)));
-  previousParams.delete('pageSize');
+  const projects = await getProjects(queryParams.toString());
+  const nextTrailEntries = [...trailEntries, cursor || 'root'];
+  const previousCursor = trailEntries.at(-1);
+  const previousTrail = trailEntries.slice(0, -1);
 
-  const nextParams = new URLSearchParams(params);
-  nextParams.set('page', String(Math.min(totalPages, currentPage + 1)));
-  nextParams.delete('pageSize');
+  const previousParams = new URLSearchParams(filterParams);
+  if (previousCursor && previousCursor !== 'root') {
+    previousParams.set('cursor', previousCursor);
+  }
+  if (previousTrail.length > 0) {
+    previousParams.set('trail', previousTrail.join(','));
+  }
 
-  const exportParams = new URLSearchParams(params);
-  exportParams.delete('page');
-  exportParams.delete('pageSize');
+  const nextParams = new URLSearchParams(filterParams);
+  if (projects.nextCursor) {
+    nextParams.set('cursor', projects.nextCursor);
+    nextParams.set('trail', nextTrailEntries.join(','));
+  }
 
   return (
     <div className="grid gap-6">
@@ -46,14 +56,14 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Sea
           <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Reference slice</p>
           <h1 className="text-4xl font-black tracking-tight text-slate-950">Projects</h1>
           <p className="max-w-2xl text-sm leading-7 text-slate-600">
-            This page is the template’s reusable CRUD baseline: filters, pagination, archiving,
-            detail editing, and CSV export against the real API.
+            This page is the template&apos;s reusable CRUD baseline: filters, cursor pagination,
+            archiving, detail editing, and CSV export against the real API.
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
           <Link
             className={buttonClassName({ variant: 'secondary' })}
-            href={`/api/projects/export.csv?${exportParams.toString()}`}
+            href={`/api/projects/export.csv?${filterParams.toString()}`}
           >
             Export CSV
           </Link>
@@ -148,26 +158,29 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Sea
 
       <section className="flex flex-wrap items-center justify-between gap-4">
         <p className="text-sm text-slate-600">
-          Page {projects.page} of {totalPages} · {projects.total} total projects
+          Showing {projects.items.length} projects{projects.hasMore ? ' with more available' : ''}.
         </p>
         <div className="flex flex-wrap gap-3">
           <Link
-            aria-disabled={currentPage <= 1}
+            aria-disabled={trailEntries.length === 0}
             className={buttonClassName({
               variant: 'secondary',
-              className: currentPage <= 1 ? 'pointer-events-none opacity-50' : undefined
+              className: trailEntries.length === 0 ? 'pointer-events-none opacity-50' : undefined
             })}
-            href={`/app/projects?${previousParams.toString()}`}
+            href={`/app/projects${previousParams.toString() ? `?${previousParams.toString()}` : ''}`}
           >
             Previous
           </Link>
           <Link
-            aria-disabled={currentPage >= totalPages}
+            aria-disabled={!projects.hasMore || !projects.nextCursor}
             className={buttonClassName({
               variant: 'secondary',
-              className: currentPage >= totalPages ? 'pointer-events-none opacity-50' : undefined
+              className:
+                !projects.hasMore || !projects.nextCursor
+                  ? 'pointer-events-none opacity-50'
+                  : undefined
             })}
-            href={`/app/projects?${nextParams.toString()}`}
+            href={`/app/projects${nextParams.toString() ? `?${nextParams.toString()}` : ''}`}
           >
             Next
           </Link>
