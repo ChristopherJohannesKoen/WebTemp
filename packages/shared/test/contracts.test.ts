@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  ApiErrorSchema,
   AuthPayloadSchema,
   ProjectListQuerySchema,
   ProjectUpsertPayloadSchema,
@@ -53,6 +54,18 @@ describe('shared contracts', () => {
         email: 'owner@example.com',
         name: '',
         role: 'owner'
+      })
+    ).not.toThrow();
+  });
+
+  it('accepts API errors with machine-readable codes', () => {
+    expect(() =>
+      ApiErrorSchema.parse({
+        statusCode: 403,
+        message: 'Forbidden',
+        code: 'forbidden',
+        errors: [],
+        requestId: 'request_1'
       })
     ).not.toThrow();
   });

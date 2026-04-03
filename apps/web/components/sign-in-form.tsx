@@ -40,12 +40,10 @@ export function SignInForm() {
       <div className="space-y-2">
         <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Access your app</p>
         <h1 className="text-3xl font-black text-slate-950">Sign in</h1>
-        <p className="text-sm text-slate-600">
-          Use the seeded owner account or sign in with an existing member account.
-        </p>
+        <p className="text-sm text-slate-600">Sign in with an existing account.</p>
       </div>
       <form action={handleSubmit} className="mt-6 grid gap-4">
-        <Field hint="Example: owner@example.com" label="Email">
+        <Field hint="Example: you@example.com" label="Email">
           <Input
             autoComplete="email"
             data-testid="sign-in-email"

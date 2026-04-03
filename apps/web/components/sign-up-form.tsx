@@ -39,10 +39,11 @@ export function SignUpForm() {
   return (
     <Card className="mx-auto max-w-md bg-white/90">
       <div className="space-y-2">
-        <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Create the first owner</p>
+        <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Create an account</p>
         <h1 className="text-3xl font-black text-slate-950">Sign up</h1>
         <p className="text-sm text-slate-600">
-          The first registered user becomes the owner. Everyone after that starts as a member.
+          Self-serve signup creates member accounts. Privileged roles are assigned intentionally
+          through setup or the admin console.
         </p>
       </div>
       <form action={handleSubmit} className="mt-6 grid gap-4">

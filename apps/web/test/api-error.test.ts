@@ -16,6 +16,7 @@ describe('api error helpers', () => {
       JSON.stringify({
         statusCode: 401,
         message: 'Unauthorized',
+        code: 'auth_required',
         errors: []
       }),
       {
@@ -24,7 +25,10 @@ describe('api error helpers', () => {
       }
     );
 
-    await expect(parseApiResponse(response)).rejects.toBeInstanceOf(ApiRequestError);
+    await expect(parseApiResponse(response)).rejects.toMatchObject({
+      code: 'auth_required',
+      statusCode: 401
+    });
   });
 
   it('normalizes unknown thrown values', () => {

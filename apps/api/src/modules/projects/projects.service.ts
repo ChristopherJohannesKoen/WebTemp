@@ -61,6 +61,7 @@ export class ProjectsService {
       throw new BadRequestException(
         {
           message,
+          code: 'export_limit_exceeded',
           errors: [
             {
               field: 'request',

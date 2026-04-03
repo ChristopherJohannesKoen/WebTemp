@@ -39,9 +39,13 @@ export const ApiValidationErrorSchema = z.object({
   message: z.string()
 });
 
+export const ApiErrorCodeSchema = z.string();
+export type ApiErrorCode = z.infer<typeof ApiErrorCodeSchema>;
+
 export const ApiErrorSchema = z.object({
   statusCode: z.number(),
   message: z.string(),
+  code: ApiErrorCodeSchema.optional(),
   errors: z.array(ApiValidationErrorSchema).default([]),
   requestId: z.string().optional()
 });

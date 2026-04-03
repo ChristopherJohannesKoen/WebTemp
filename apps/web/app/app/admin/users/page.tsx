@@ -1,4 +1,4 @@
-import { redirect } from 'next/navigation';
+import { forbidden } from 'next/navigation';
 import { Badge, Card } from '@packages/ui';
 import { RoleForm } from '../../../../components/role-form';
 import { formatDate, roleTone } from '../../../../lib/display';
@@ -14,7 +14,7 @@ export default async function AdminUsersPage({ searchParams }: { searchParams: S
   const currentUser = await requireCurrentUser();
 
   if (currentUser.role === 'member') {
-    redirect('/app');
+    forbidden();
   }
 
   const resolvedSearchParams = await searchParams;

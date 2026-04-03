@@ -162,6 +162,16 @@ test('blocks a member from mutating an owner project but allows editing their ow
     .locator('[data-testid="project-card"][data-project-name="Launch marketing refresh"]')
     .getByRole('link', { name: 'Manage' })
     .click();
+  let forbiddenResponses = 0;
+  page.on('response', (response) => {
+    if (
+      response.url().includes('/api/projects/') &&
+      response.request().method() === 'PATCH' &&
+      response.status() === 403
+    ) {
+      forbiddenResponses += 1;
+    }
+  });
   await Promise.all([
     page.waitForResponse(
       (response) =>
@@ -174,6 +184,8 @@ test('blocks a member from mutating an owner project but allows editing their ow
   await expect(page.getByTestId('project-actions-error')).toContainText(
     'You do not have permission to modify this project.'
   );
+  await page.waitForTimeout(250);
+  expect(forbiddenResponses).toBe(1);
 
   await page.goto(memberProjectUrl);
   page.once('dialog', (dialog) => dialog.accept());
@@ -189,4 +201,24 @@ test('blocks a member from mutating an owner project but allows editing their ow
   await expect(page).toHaveURL(/\/app\/projects$/);
   await page.goto('/app/projects?search=Member%20owned%20project%20updated');
   await expect(page.getByRole('heading', { name: 'No matching projects' })).toBeVisible();
+});
+
+test('renders the protected-route error boundary for upstream project failures', async ({ page }) => {
+  await signIn(page, seededUsers.owner);
+  await page.goto('/app/projects');
+
+  const projectPath = await page
+    .locator('[data-testid="project-card"][data-project-name="Launch marketing refresh"]')
+    .getByRole('link', { name: 'Manage' })
+    .getAttribute('href');
+
+  if (!projectPath) {
+    throw new Error('Could not resolve the seeded project detail URL.');
+  }
+
+  await page.goto(`${projectPath}?forceError=upstream`);
+
+  await expect(page.getByTestId('protected-route-error')).toBeVisible();
+  await expect(page.getByTestId('protected-route-not-found')).toHaveCount(0);
+  await expect(page).not.toHaveURL(/\/login$/);
 });

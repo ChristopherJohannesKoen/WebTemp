@@ -32,6 +32,7 @@ export function loadE2EEnv() {
   process.env.ALLOW_MISSING_ORIGIN_FOR_DEV ??= 'false';
   process.env.API_PORT ??= '4100';
   process.env.WEB_PORT ??= '3100';
+  process.env.TEMPLATE_E2E ??= 'true';
   process.env.SESSION_TOUCH_INTERVAL_MS ??= '600000';
   process.env.POSTGRES_DB ??= 'ultimate_template_e2e';
   process.env.DATABASE_URL ??=
@@ -53,6 +54,7 @@ export function getE2EEnv() {
     ALLOW_MISSING_ORIGIN_FOR_DEV: process.env.ALLOW_MISSING_ORIGIN_FOR_DEV ?? 'false',
     API_PORT: process.env.API_PORT ?? '4100',
     WEB_PORT: process.env.WEB_PORT ?? '3100',
+    TEMPLATE_E2E: process.env.TEMPLATE_E2E ?? 'true',
     SESSION_TOUCH_INTERVAL_MS: process.env.SESSION_TOUCH_INTERVAL_MS ?? '600000',
     DATABASE_URL:
       process.env.DATABASE_URL ??

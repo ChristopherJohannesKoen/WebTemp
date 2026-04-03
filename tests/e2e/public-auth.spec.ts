@@ -16,11 +16,43 @@ test('renders the public landing page and auth links', async ({ page }) => {
   await expect(page.getByRole('link', { name: 'Explore Auth Flow' })).toBeVisible();
 });
 
+test('serves hardened security headers on public and protected pages', async ({ page }) => {
+  const landingResponse = await page.goto('/');
+
+  expect(landingResponse?.headers()['x-frame-options']).toBe('DENY');
+  expect(landingResponse?.headers()['x-content-type-options']).toBe('nosniff');
+  expect(landingResponse?.headers()['content-security-policy']).toContain("frame-ancestors 'none'");
+  expect(landingResponse?.headers()['content-security-policy']).toContain("script-src 'self' 'nonce-");
+
+  const loginResponse = await page.goto('/login');
+
+  expect(loginResponse?.headers()['referrer-policy']).toBe('strict-origin-when-cross-origin');
+  expect(loginResponse?.headers()['permissions-policy']).toContain('geolocation=()');
+
+  await signIn(page, seededUsers.owner);
+  const dashboardResponse = await page.goto('/app');
+
+  expect(dashboardResponse?.headers()['cross-origin-opener-policy']).toBe('same-origin');
+  expect(dashboardResponse?.headers()['cross-origin-resource-policy']).toBe('same-origin');
+});
+
 test('redirects unauthenticated users from protected routes', async ({ page }) => {
   for (const path of ['/app', '/app/projects', '/app/settings']) {
     await page.goto(path);
     await expect(page).toHaveURL(/\/login$/);
   }
+});
+
+test('keeps privileged bootstrap details off public auth pages', async ({ page }) => {
+  await page.goto('/login');
+  await expect(page.getByText('Seeded owner email')).toHaveCount(0);
+  await expect(page.getByText(seededUsers.owner.email)).toHaveCount(0);
+  await expect(page.getByText('Sign in with an existing account.')).toBeVisible();
+
+  await page.goto('/signup');
+  await expect(page.getByText('Create the first owner')).toHaveCount(0);
+  await expect(page.getByText('The first registered user becomes the owner.')).toHaveCount(0);
+  await expect(page.getByText('Self-serve signup creates member accounts.')).toBeVisible();
 });
 
 test('redirects authenticated users away from login and signup', async ({ page }) => {

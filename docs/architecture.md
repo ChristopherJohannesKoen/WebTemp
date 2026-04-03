@@ -25,6 +25,7 @@ This repository is a reusable single-tenant SaaS template. It is intentionally o
 
 - Argon2id password hashing
 - secure, HTTP-only session cookies
+- nonce-based Content Security Policy and strict browser security headers on web responses
 - synchronizer-token CSRF protection for authenticated unsafe routes
 - idempotency protection for critical POST endpoints
 - session rotation and per-user session caps
@@ -42,6 +43,15 @@ This repository is a reusable single-tenant SaaS template. It is intentionally o
 - Mutating first-party browser requests require a valid CSRF token, and origin checks stay strict by default outside tests.
 - Synchronous CSV export must return the full filtered result or fail explicitly; it must never silently truncate.
 - Non-authentication code paths must not hydrate password hashes or other sensitive user fields when public relation selects are sufficient.
+- The web tier forwards only the configured session cookie to the API; unrelated browser cookies must never become auth inputs.
+- Protected route failures must distinguish `401`, `403`, `404`, and upstream errors instead of collapsing them into redirects or fake not-found states.
+
+## Web Security Boundary
+
+- `apps/web/middleware.ts` issues a per-request nonce and sets CSP, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, and related browser hardening headers.
+- The nonce-based CSP forces dynamic rendering so Next.js can attach the nonce to framework and page scripts at request time.
+- Public auth pages do not render seeded local credentials or privileged bootstrap hints; those stay in docs and runbooks only.
+- The web server bridge retries unsafe requests only for explicit `csrf_invalid` responses and forwards only `SESSION_COOKIE_NAME` to the API.
 
 ## Shared Contracts
 

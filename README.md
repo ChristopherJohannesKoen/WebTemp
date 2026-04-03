@@ -5,6 +5,7 @@ An opinionated full-stack SaaS template for teams that want to start from a hard
 ## Stack
 
 - `apps/web`: Next.js 15 App Router, Tailwind, shared UI package, server-side `/api/*` proxying
+- `apps/web`: Next.js 15 App Router, Tailwind, shared UI package, nonce-based CSP, strict browser security headers, server-side `/api/*` proxying
 - `apps/api`: NestJS 11, Prisma, Postgres, Swagger, session-cookie auth, CSRF protection, idempotency, RBAC, rate limiting, audit logging
 - `packages/db`: shared Prisma schema, migrations, seed flow
 - `packages/shared`: shared Zod contracts and DTO types
@@ -19,6 +20,7 @@ An opinionated full-stack SaaS template for teams that want to start from a hard
 - Projects reference slice with indexed search, filters, cursor pagination, ownership-aware mutations, detail/edit, archive, delete, and streamed CSV export
 - Docker-first local stack with Next.js, NestJS, and Postgres
 - real lint, typecheck, unit tests, API integration tests, and Playwright auth/project/session/RBAC coverage
+- browser-boundary hardening with CSP, clickjacking protection, strict cookie forwarding, and route-level forbidden/error states
 - CI, Docker image publishing workflow, and CodeQL scanning
 
 ## Quick Start

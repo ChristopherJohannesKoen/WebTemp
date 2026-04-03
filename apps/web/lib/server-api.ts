@@ -12,9 +12,10 @@ import type {
 import { ApiRequestError, parseApiResponse } from './api-error';
 
 const apiOrigin = process.env.API_ORIGIN ?? 'http://localhost:4000';
+const sessionCookieName = process.env.SESSION_COOKIE_NAME ?? 'ultimate_template_session';
 
 function getFetchOptions(path: string, init?: RequestInit) {
-  if (process.env.NODE_ENV === 'test') {
+  if (process.env.NODE_ENV === 'test' || process.env.TEMPLATE_E2E === 'true') {
     return { cache: 'no-store' as const };
   }
 
@@ -25,9 +26,10 @@ function getFetchOptions(path: string, init?: RequestInit) {
   }
 
   if (
-    path.startsWith('/auth/me') ||
-    path.startsWith('/auth/sessions') ||
-    path.startsWith('/users/me')
+    path.startsWith('/auth/') ||
+    path.startsWith('/users/') ||
+    path.startsWith('/admin/') ||
+    path.startsWith('/projects')
   ) {
     return { cache: 'no-store' as const };
   }
@@ -48,12 +50,26 @@ async function serverApiRequest<T>(path: string, init?: RequestInit) {
     headers.set('Content-Type', 'application/json');
   }
 
-  if (cookieStore.toString()) {
-    headers.set('cookie', cookieStore.toString());
+  if (!headers.has('cookie')) {
+    const sessionCookie = cookieStore.get(sessionCookieName);
+
+    if (sessionCookie) {
+      headers.set('cookie', `${sessionCookie.name}=${sessionCookie.value}`);
+    }
   }
 
   if ('cache' in fetchOptions && fetchOptions.cache === 'no-store') {
     noStore();
+  }
+
+  if (process.env.TEMPLATE_E2E === 'true' && path.startsWith('/projects/') && path.includes('forceError=upstream')) {
+    throw new ApiRequestError(
+      'The upstream API is unavailable.',
+      503,
+      [],
+      undefined,
+      'upstream_error'
+    );
   }
 
   const response = await fetch(`${apiOrigin}/api${path}`, {
@@ -81,8 +97,12 @@ export async function getCurrentUser() {
   try {
     const response = await serverApiRequest<AuthResponse>('/auth/me');
     return response.user;
-  } catch {
-    return undefined;
+  } catch (error) {
+    if (error instanceof ApiRequestError && error.statusCode === 401) {
+      return undefined;
+    }
+
+    throw error;
   }
 }
 
@@ -100,8 +120,10 @@ export async function getProjects(query = '') {
   return protectedServerApiRequest<ProjectListResponse>(`/projects${query ? `?${query}` : ''}`);
 }
 
-export async function getProject(projectId: string) {
-  return protectedServerApiRequest<Project>(`/projects/${projectId}`);
+export async function getProject(projectId: string, query = '') {
+  return protectedServerApiRequest<Project>(
+    `/projects/${projectId}${query ? `?${query}` : ''}`
+  );
 }
 
 export async function getUsers(query = '') {

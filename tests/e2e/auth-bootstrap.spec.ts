@@ -13,7 +13,7 @@ test('keeps the first public signup as a member in an empty database', async ({ 
 
   await expect(page.getByRole('heading', { name: /Welcome back, First Member\./ })).toBeVisible();
   await page.goto('/app/admin/users');
-  await expect(page).toHaveURL(/\/app$/);
+  await expect(page.getByTestId('protected-route-forbidden')).toBeVisible();
 });
 
 test('uses the seeded owner as the baseline bootstrap path', async ({ page }) => {

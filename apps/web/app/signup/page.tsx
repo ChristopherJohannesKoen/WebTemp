@@ -15,8 +15,7 @@ export default async function SignupPage() {
         <div className="space-y-2 text-center">
           <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Template onboarding</p>
           <p className="text-sm text-slate-600">
-            Use this route to validate self-serve member signup on top of the seeded owner/admin
-            baseline.
+            Use this route to validate self-serve member signup against the hardened auth baseline.
           </p>
         </div>
         <SignUpForm />

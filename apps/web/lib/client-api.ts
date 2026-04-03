@@ -1,7 +1,7 @@
 'use client';
 
 import type { CsrfResponse } from '@packages/shared';
-import { parseApiResponse } from './api-error';
+import { ApiRequestError, parseApiResponse } from './api-error';
 
 const unsafeMethods = new Set(['POST', 'PATCH', 'PUT', 'DELETE']);
 const csrfExemptPaths = new Set([
@@ -101,13 +101,7 @@ export async function clientApiRequest<T>(
 
     return payload;
   } catch (error) {
-    if (
-      shouldSendCsrf(path, method) &&
-      typeof error === 'object' &&
-      error !== null &&
-      'statusCode' in error &&
-      (error as { statusCode?: number }).statusCode === 403
-    ) {
+    if (shouldSendCsrf(path, method) && error instanceof ApiRequestError && error.code === 'csrf_invalid') {
       clearCsrfToken();
       return runRequest(true);
     }

@@ -28,6 +28,21 @@ npm run dev
 - `npm run db:reset`: rebuild the database from scratch
 - `npm run prisma:generate`: regenerate Prisma client
 
+## Seeded Local Account
+
+Seed data provisions the initial owner through setup, not public signup.
+
+- email: `owner@example.com`
+- password: `ChangeMe123!`
+
+Keep these credentials in local docs only. The public login and signup pages intentionally do not render them.
+
+## Web Security Notes
+
+- The web app now runs with a nonce-based CSP. Because of that, pages render dynamically per request instead of using static generation.
+- In development, CSP allows websocket connections and `unsafe-eval` so Next.js HMR can function. Production keeps the stricter policy.
+- If you add third-party scripts, fonts, or analytics later, update the CSP policy in `apps/web/middleware.ts` at the same time.
+
 ## Verification
 
 - `npm run lint`

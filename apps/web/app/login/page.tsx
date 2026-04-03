@@ -15,8 +15,7 @@ export default async function LoginPage() {
         <div className="space-y-2 text-center">
           <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Template auth</p>
           <p className="text-sm text-slate-600">
-            Seeded owner email:{' '}
-            <span className="font-semibold text-slate-950">{process.env.SEED_OWNER_EMAIL}</span>
+            Sign in with an existing account to open the protected dashboard.
           </p>
         </div>
         <SignInForm />
