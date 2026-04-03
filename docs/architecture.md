@@ -2,7 +2,7 @@
 
 ## Goal
 
-This repository is a reusable single-tenant SaaS starter. It is intentionally opinionated so new projects can inherit a real product spine instead of a blank monorepo.
+This repository is a reusable single-tenant SaaS template. It is intentionally opinionated so new projects can inherit a hardened product spine instead of a blank monorepo.
 
 ## Runtime Topology
 
@@ -28,11 +28,20 @@ This repository is a reusable single-tenant SaaS starter. It is intentionally op
 - synchronizer-token CSRF protection for authenticated unsafe routes
 - idempotency protection for critical POST endpoints
 - session rotation and per-user session caps
+- touch-throttled session freshness updates
 - owner/admin/member global roles
 - origin checks for mutating requests as secondary defense
 - throttling via Nest throttler
 - structured request IDs and audit records
 - validation-first request handling with class-validator and a shared JSON error envelope
+
+## Security Invariants
+
+- Seed/setup flows establish the initial owner; public signup never bootstraps privileged roles.
+- Role-protected routes return `401` when unauthenticated and `403` only for authenticated-but-forbidden requests.
+- Mutating first-party browser requests require a valid CSRF token, and origin checks stay strict by default outside tests.
+- Synchronous CSV export must return the full filtered result or fail explicitly; it must never silently truncate.
+- Non-authentication code paths must not hydrate password hashes or other sensitive user fields when public relation selects are sufficient.
 
 ## Shared Contracts
 

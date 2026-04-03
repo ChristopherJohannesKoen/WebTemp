@@ -10,16 +10,12 @@ function createConfigService(overrides: Record<string, string> = {}) {
   };
 }
 
-function createTransactionalPrisma(transaction: Record<string, unknown>) {
+function withSessionTransaction(prismaService: Record<string, unknown>) {
   return {
-    ...transaction,
-    $transaction: vi.fn(async (callback: unknown) => {
-      if (typeof callback === 'function') {
-        return callback(transaction);
-      }
-
-      return callback;
-    })
+    ...prismaService,
+    $transaction: vi.fn(async (callback: (transaction: Record<string, unknown>) => unknown) =>
+      callback(prismaService)
+    )
   };
 }
 
@@ -32,17 +28,14 @@ describe('AuthService', () => {
     vi.clearAllMocks();
   });
 
-  it('creates the first account as owner and opens a capped session', async () => {
-    const transaction = {
+  it('creates public signup accounts as members and opens a capped session', async () => {
+    const prismaService = {
       user: {
-        findUnique: vi.fn().mockResolvedValue(undefined),
-        count: vi.fn().mockResolvedValue(0),
         create: vi.fn().mockResolvedValue({
-          id: 'user_owner',
-          email: 'owner@example.com',
-          name: 'Owner User',
-          role: 'owner',
-          passwordHash: 'hashed'
+          id: 'user_member',
+          email: 'member@example.com',
+          name: 'Member User',
+          role: 'member'
         })
       },
       session: {
@@ -53,7 +46,7 @@ describe('AuthService', () => {
     };
 
     const service = new AuthService(
-      createTransactionalPrisma(transaction) as never,
+      withSessionTransaction(prismaService) as never,
       createConfigService({
         ARGON2_MEMORY_COST: '1024',
         SESSION_MAX_ACTIVE: '5',
@@ -64,8 +57,8 @@ describe('AuthService', () => {
 
     const result = await service.signUp(
       {
-        name: 'Owner User',
-        email: 'owner@example.com',
+        name: 'Member User',
+        email: 'member@example.com',
         password: 'password123'
       },
       {
@@ -74,15 +67,73 @@ describe('AuthService', () => {
       }
     );
 
-    expect(result.user.role).toBe('owner');
+    expect(result.user.role).toBe('member');
     expect(result.token).toHaveLength(64);
-    expect(transaction.session.create).toHaveBeenCalledTimes(1);
+    expect(prismaService.session.create).toHaveBeenCalledTimes(1);
     expect(auditService.log).toHaveBeenCalledWith(
       expect.objectContaining({
         action: 'auth.signup',
-        metadata: { role: 'owner' }
+        metadata: { role: 'member' }
       })
     );
+  });
+
+  it('keeps concurrent public signups as members', async () => {
+    const prismaService = {
+      user: {
+        create: vi
+          .fn()
+          .mockResolvedValueOnce({
+            id: 'user_member_1',
+            email: 'member1@example.com',
+            name: 'Member One',
+            role: 'member'
+          })
+          .mockResolvedValueOnce({
+            id: 'user_member_2',
+            email: 'member2@example.com',
+            name: 'Member Two',
+            role: 'member'
+          })
+      },
+      session: {
+        create: vi.fn().mockResolvedValue(undefined),
+        findMany: vi.fn().mockResolvedValue([]),
+        deleteMany: vi.fn().mockResolvedValue({ count: 0 })
+      }
+    };
+
+    const service = new AuthService(
+      withSessionTransaction(prismaService) as never,
+      createConfigService({
+        ARGON2_MEMORY_COST: '1024',
+        SESSION_MAX_ACTIVE: '5'
+      }) as never,
+      auditService as never
+    );
+
+    const [firstSignup, secondSignup] = await Promise.all([
+      service.signUp(
+        {
+          name: 'Member One',
+          email: 'member1@example.com',
+          password: 'password123'
+        },
+        {}
+      ),
+      service.signUp(
+        {
+          name: 'Member Two',
+          email: 'member2@example.com',
+          password: 'password123'
+        },
+        {}
+      )
+    ]);
+
+    expect(firstSignup.user.role).toBe('member');
+    expect(secondSignup.user.role).toBe('member');
+    expect(prismaService.user.create).toHaveBeenCalledTimes(2);
   });
 
   it('rejects invalid login credentials', async () => {
@@ -216,5 +267,115 @@ describe('AuthService', () => {
         'raw-token'
       )
     ).toThrow(ForbiddenException);
+  });
+
+  it('does not rewrite active sessions inside the touch window', async () => {
+    const prismaService = {
+      session: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'session_1',
+          tokenHash: 'existing-hash',
+          csrfTokenHash: 'csrf-hash',
+          userId: 'user_member',
+          expiresAt: new Date(Date.now() + 60_000),
+          createdAt: new Date(Date.now() - 60_000),
+          lastUsedAt: new Date(Date.now() - 30_000),
+          lastRotatedAt: new Date(Date.now() - 30_000),
+          ipAddress: '127.0.0.1',
+          userAgent: 'vitest',
+          user: {
+            id: 'user_member',
+            email: 'member@example.com',
+            name: 'Member User',
+            role: 'member'
+          }
+        }),
+        update: vi.fn()
+      }
+    };
+
+    const service = new AuthService(
+      prismaService as never,
+      createConfigService({
+        ARGON2_MEMORY_COST: '1024',
+        SESSION_ROTATION_MS: '3600000',
+        SESSION_TOUCH_INTERVAL_MS: '600000'
+      }) as never,
+      auditService as never
+    );
+
+    const sessionContext = await service.getSessionContextFromToken('raw-token', {
+      ipAddress: '127.0.0.1',
+      userAgent: 'vitest'
+    });
+
+    expect(sessionContext?.user.email).toBe('member@example.com');
+    expect(prismaService.session.update).not.toHaveBeenCalled();
+  });
+
+  it('touches and rotates sessions when the policy requires it', async () => {
+    const now = new Date();
+    const prismaService = {
+      session: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'session_1',
+          tokenHash: 'existing-hash',
+          csrfTokenHash: 'csrf-hash',
+          userId: 'user_member',
+          expiresAt: new Date(Date.now() + 60_000),
+          createdAt: new Date(Date.now() - 7_200_000),
+          lastUsedAt: new Date(Date.now() - 900_000),
+          lastRotatedAt: new Date(Date.now() - 7_200_000),
+          ipAddress: '127.0.0.1',
+          userAgent: 'old-agent',
+          user: {
+            id: 'user_member',
+            email: 'member@example.com',
+            name: 'Member User',
+            role: 'member'
+          }
+        }),
+        update: vi.fn().mockResolvedValue({
+          id: 'session_1',
+          userId: 'user_member',
+          csrfTokenHash: 'csrf-hash',
+          expiresAt: new Date(Date.now() + 60_000),
+          createdAt: new Date(Date.now() - 7_200_000),
+          lastUsedAt: now,
+          lastRotatedAt: now,
+          ipAddress: '10.0.0.1',
+          userAgent: 'new-agent'
+        })
+      }
+    };
+
+    const service = new AuthService(
+      prismaService as never,
+      createConfigService({
+        ARGON2_MEMORY_COST: '1024',
+        SESSION_ROTATION_MS: '1000',
+        SESSION_TOUCH_INTERVAL_MS: '600000'
+      }) as never,
+      auditService as never
+    );
+
+    const sessionContext = await service.getSessionContextFromToken('raw-token', {
+      ipAddress: '10.0.0.1',
+      userAgent: 'new-agent'
+    });
+
+    expect(prismaService.session.update).toHaveBeenCalledTimes(1);
+    expect(prismaService.session.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          lastUsedAt: expect.any(Date),
+          lastRotatedAt: expect.any(Date),
+          tokenHash: expect.any(String),
+          ipAddress: '10.0.0.1',
+          userAgent: 'new-agent'
+        })
+      })
+    );
+    expect(sessionContext?.rotatedToken).toHaveLength(64);
   });
 });

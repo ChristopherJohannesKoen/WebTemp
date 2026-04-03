@@ -16,7 +16,7 @@ const displayFont = Space_Grotesk({
 
 export const metadata: Metadata = {
   title: 'Ultimate Website Template',
-  description: 'A Docker-first, app-first SaaS starter with auth, RBAC, and Projects CRUD.'
+  description: 'A hardened, Docker-first SaaS template with auth, RBAC, session security, and Projects CRUD.'
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -2,7 +2,8 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import type { Response } from 'express';
 import type { ProjectListResponse, SessionUser } from '@packages/shared';
 import { ConfigService } from '@nestjs/config';
-import { Prisma, ProjectStatus, Role } from '@prisma/client';
+import { Prisma, ProjectStatus } from '@prisma/client';
+import { projectWithCreatorSelect, type ProjectWithCreatorRecord } from '../../common/prisma/public-selects';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { decodeProjectCursor, encodeProjectCursor } from './project-cursor';
@@ -10,23 +11,6 @@ import { ProjectPolicyService } from './project-policy.service';
 import type { CreateProjectDto } from './dto/create-project.dto';
 import type { ListProjectsDto } from './dto/list-projects.dto';
 import type { UpdateProjectDto } from './dto/update-project.dto';
-
-type ProjectRecord = {
-  id: string;
-  name: string;
-  description: string | null;
-  status: ProjectStatus;
-  isArchived: boolean;
-  creatorId: string;
-  createdAt: Date;
-  updatedAt: Date;
-  creator: {
-    id: string;
-    email: string;
-    name: string;
-    role: Role;
-  };
-};
 
 @Injectable()
 export class ProjectsService {
@@ -42,7 +26,7 @@ export class ProjectsService {
     const pageSize = query.limit;
     const items = await this.prismaService.project.findMany({
       where: this.buildProjectWhere(query, cursor),
-      include: { creator: true },
+      select: projectWithCreatorSelect,
       orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
       take: pageSize + 1
     });
@@ -73,8 +57,18 @@ export class ProjectsService {
     });
 
     if (total > this.getExportSyncLimit()) {
+      const message = `Filtered export exceeds the synchronous export limit of ${this.getExportSyncLimit()} rows. Narrow the filters or add async exports.`;
       throw new BadRequestException(
-        `Filtered export exceeds the synchronous export limit of ${this.getExportSyncLimit()} rows. Narrow the filters or add async exports.`
+        {
+          message,
+          errors: [
+            {
+              field: 'request',
+              code: 'export_limit_exceeded',
+              message
+            }
+          ]
+        }
       );
     }
 
@@ -97,7 +91,7 @@ export class ProjectsService {
           },
           cursor
         ),
-        include: { creator: true },
+        select: projectWithCreatorSelect,
         orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
         take: batchSize
       });
@@ -140,7 +134,7 @@ export class ProjectsService {
   async getProject(projectId: string) {
     const project = await this.prismaService.project.findUnique({
       where: { id: projectId },
-      include: { creator: true }
+      select: projectWithCreatorSelect
     });
 
     if (!project) {
@@ -159,7 +153,7 @@ export class ProjectsService {
         isArchived: dto.isArchived ?? false,
         creatorId: currentUser.id
       },
-      include: { creator: true }
+      select: projectWithCreatorSelect
     });
 
     await this.auditService.log({
@@ -195,7 +189,7 @@ export class ProjectsService {
         ...(dto.status ? { status: dto.status } : {}),
         ...(dto.isArchived !== undefined ? { isArchived: dto.isArchived } : {})
       },
-      include: { creator: true }
+      select: projectWithCreatorSelect
     });
 
     const action =
@@ -299,7 +293,7 @@ export class ProjectsService {
     return Number(this.configService.get<string>('EXPORT_SYNC_LIMIT', '5000'));
   }
 
-  private serializeProject(project: ProjectRecord) {
+  private serializeProject(project: ProjectWithCreatorRecord) {
     return {
       id: project.id,
       name: project.name,

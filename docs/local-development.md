@@ -39,7 +39,9 @@ npm run dev
 ## Troubleshooting
 
 - If Prisma complains about missing generated types, run `npm run prisma:generate`.
+- If the first admin account is missing, rerun `npm run db:setup`; owner bootstrap comes from seed data, not public signup.
 - If auth requests fail across origins, confirm `APP_URL`, `API_ORIGIN`, and `ALLOWED_ORIGINS` match the actual local or LAN URLs.
+- If a local non-browser client cannot send `Origin` or `Referer`, set `ALLOW_MISSING_ORIGIN_FOR_DEV=true` only for that development session.
 - If authenticated writes fail with `403`, fetch a fresh CSRF token by reloading the page or calling `GET /api/auth/csrf` from the first-party client.
 - If protected POST requests fail with `400`, confirm the client sends `Idempotency-Key` on signup, password reset completion, and project creation.
 - If the web app cannot load seeded data, rerun `npm run db:setup`.

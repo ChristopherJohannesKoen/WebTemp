@@ -24,6 +24,12 @@
   - service writes and audits the result
 - Audit denied writes when the policy boundary matters for incident review.
 
+## Public Relation Selects
+
+- When a feature needs related user data, use a shared public select constant instead of `include: true`.
+- Public relation selects should expose only the fields the web/API contract actually needs, such as `id`, `email`, `name`, and `role`.
+- Password hashes and other sensitive columns should only be loaded in code paths that explicitly perform authentication work.
+
 ## Request Integrity
 
 - Require `Idempotency-Key` on high-value POST endpoints that create or finalize state.

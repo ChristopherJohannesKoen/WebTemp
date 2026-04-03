@@ -2,6 +2,7 @@ import { Injectable, NestMiddleware } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { createHash, randomBytes } from 'node:crypto';
 import type { NextFunction, Response } from 'express';
+import { publicUserSelect } from '../prisma/public-selects';
 import type { AuthenticatedRequest } from '../types/authenticated-request';
 
 const prisma = new PrismaClient();
@@ -20,7 +21,7 @@ export class SessionMiddleware implements NestMiddleware {
     request.sessionToken = token;
     const session = await prisma.session.findUnique({
       where: { tokenHash: hashToken(token) },
-      include: { user: true }
+      include: { user: { select: publicUserSelect } }
     });
 
     if (!session) {
@@ -37,18 +38,22 @@ export class SessionMiddleware implements NestMiddleware {
     const now = new Date();
     const shouldRotate =
       now.getTime() - session.lastRotatedAt.getTime() >= getSessionRotationWindowMs();
+    const shouldTouch =
+      now.getTime() - session.lastUsedAt.getTime() >= getSessionTouchIntervalMs();
     const rotatedToken = shouldRotate ? generateToken() : undefined;
-
-    const updatedSession = await prisma.session.update({
-      where: { id: session.id },
-      data: {
-        lastUsedAt: now,
-        lastRotatedAt: shouldRotate ? now : undefined,
-        tokenHash: rotatedToken ? hashToken(rotatedToken) : undefined,
-        ipAddress: request.ip ?? session.ipAddress ?? null,
-        userAgent: request.header('user-agent') ?? session.userAgent ?? null
-      }
-    });
+    const shouldPersistSession = shouldRotate || shouldTouch;
+    const updatedSession = shouldPersistSession
+      ? await prisma.session.update({
+          where: { id: session.id },
+          data: {
+            lastUsedAt: now,
+            lastRotatedAt: shouldRotate ? now : undefined,
+            tokenHash: rotatedToken ? hashToken(rotatedToken) : undefined,
+            ipAddress: request.ip ?? session.ipAddress ?? null,
+            userAgent: request.header('user-agent') ?? session.userAgent ?? null
+          }
+        })
+      : session;
 
     request.currentUser = {
       id: session.user.id,
@@ -87,6 +92,10 @@ function generateToken() {
 
 function getSessionRotationWindowMs() {
   return Number(process.env.SESSION_ROTATION_MS ?? '43200000');
+}
+
+function getSessionTouchIntervalMs() {
+  return Number(process.env.SESSION_TOUCH_INTERVAL_MS ?? '600000');
 }
 
 function getCookieOptions(expiresAt: Date) {

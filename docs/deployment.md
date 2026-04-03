@@ -9,9 +9,9 @@
 
 ## Production Checklist
 
-1. Set production `APP_URL`, `API_ORIGIN`, `DATABASE_URL`, and `SESSION_SECRET`.
+1. Set production `APP_URL`, `API_ORIGIN`, `DATABASE_URL`, `SESSION_COOKIE_NAME`, and the origin policy envs.
 2. Run `npm run prisma:migrate:deploy`.
-3. Run `npm run seed` only for non-production bootstrap environments.
+3. Run `npm run seed` only for bootstrap environments where the initial owner must be provisioned.
 4. Build and publish `api` and `web` images from GitHub Actions.
 5. Expose `/api/health` for health checks.
 
@@ -24,5 +24,7 @@
 ## Notes
 
 - The default template is single-tenant.
+- Public signup creates `member` users only; owner bootstrap is a seed/setup concern.
+- Keep `ALLOW_MISSING_ORIGIN_FOR_DEV=false` in deploy environments.
 - Password reset email delivery is intentionally left as an extension point.
 - Redis, object storage, and reverse proxy components are optional and profile-driven.

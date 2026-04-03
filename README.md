@@ -1,6 +1,6 @@
 # Ultimate General Website Template
 
-An opinionated full-stack SaaS starter for teams that want to begin with real application infrastructure instead of rebuilding the same baseline on every project.
+An opinionated full-stack SaaS template for teams that want to start from a hardened, reusable product baseline instead of rebuilding the same infrastructure on every project.
 
 ## Stack
 
@@ -18,7 +18,7 @@ An opinionated full-stack SaaS starter for teams that want to begin with real ap
 - authenticated dashboard shell with profile settings, session security, and admin user management
 - Projects reference slice with indexed search, filters, cursor pagination, ownership-aware mutations, detail/edit, archive, delete, and streamed CSV export
 - Docker-first local stack with Next.js, NestJS, and Postgres
-- real lint, typecheck, unit tests, API integration tests, and Playwright smoke coverage
+- real lint, typecheck, unit tests, API integration tests, and Playwright auth/project/session/RBAC coverage
 - CI, Docker image publishing workflow, and CodeQL scanning
 
 ## Quick Start
@@ -74,8 +74,8 @@ docker compose up --build
 - `npm run lint`: run ESLint and Prisma validation
 - `npm run typecheck`: run TypeScript and Prisma validation
 - `npm test`: run workspace Vitest suites
-- `npm run test:e2e`: run the Playwright smoke test
-- `npm run build`: generate Prisma client and produce production builds
+- `npm run test:e2e`: run the full Playwright E2E suite
+- `npm run build`: produce production builds for every workspace
 - `npm run docker:up`: build and start the Compose stack
 - `npm run docker:down`: stop and clean up Compose containers
 

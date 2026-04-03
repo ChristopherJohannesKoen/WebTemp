@@ -12,6 +12,7 @@ import {
   UseInterceptors
 } from '@nestjs/common';
 import {
+  ApiBadRequestResponse,
   ApiCookieAuth,
   ApiHeader,
   ApiOperation,
@@ -43,7 +44,13 @@ export class ProjectsController {
 
   @Get('export.csv')
   @ApiProduces('text/csv')
-  @ApiOperation({ summary: 'Export filtered projects as CSV' })
+  @ApiOperation({
+    summary:
+      'Export filtered projects as CSV or return export_limit_exceeded when the synchronous limit is exceeded'
+  })
+  @ApiBadRequestResponse({
+    description: 'Filtered export exceeds the synchronous export limit.'
+  })
   async exportProjects(@Query() query: ListProjectsDto, @Res() response: Response) {
     response.setHeader('Content-Type', 'text/csv');
     response.setHeader('Content-Disposition', 'attachment; filename="projects.csv"');

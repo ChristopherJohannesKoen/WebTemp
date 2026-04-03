@@ -11,6 +11,7 @@ import argon2 from 'argon2';
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import type { SessionSummary, SessionUser } from '@packages/shared';
 import type { AuthenticatedSession } from '../../common/types/authenticated-request';
+import { publicUserSelect, type PublicUserRecord } from '../../common/prisma/public-selects';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { normalizeDisplayName, normalizeEmail } from './auth.helpers';
@@ -44,31 +45,15 @@ export class AuthService {
     const email = normalizeEmail(dto.email);
 
     try {
-      const user = await this.prismaService.$transaction(
-        async (transaction) => {
-          const existingUser = await transaction.user.findUnique({
-            where: { email }
-          });
-
-          if (existingUser) {
-            throw new ConflictException('An account with this email already exists.');
-          }
-
-          const role = (await transaction.user.count()) === 0 ? 'owner' : 'member';
-
-          return transaction.user.create({
-            data: {
-              email,
-              name: normalizeDisplayName(dto.name),
-              role,
-              passwordHash: await this.hashPassword(dto.password)
-            }
-          });
+      const user = await this.prismaService.user.create({
+        data: {
+          email,
+          name: normalizeDisplayName(dto.name),
+          role: 'member',
+          passwordHash: await this.hashPassword(dto.password)
         },
-        {
-          isolationLevel: Prisma.TransactionIsolationLevel.Serializable
-        }
-      );
+        select: publicUserSelect
+      });
 
       await this.auditService.log({
         actorId: user.id,
@@ -194,7 +179,11 @@ export class AuthService {
   async requestPasswordReset(dto: ForgotPasswordDto) {
     const email = normalizeEmail(dto.email);
     const user = await this.prismaService.user.findUnique({
-      where: { email }
+      where: { email },
+      select: {
+        id: true,
+        email: true
+      }
     });
 
     const message =
@@ -255,7 +244,8 @@ export class AuthService {
 
       const updatedUser = await transaction.user.update({
         where: { id: tokenRecord.userId },
-        data: { passwordHash }
+        data: { passwordHash },
+        select: publicUserSelect
       });
 
       await transaction.session.deleteMany({
@@ -305,7 +295,7 @@ export class AuthService {
     const tokenHash = this.hashToken(rawToken);
     const session = await this.prismaService.session.findUnique({
       where: { tokenHash },
-      include: { user: true }
+      include: { user: { select: publicUserSelect } }
     });
 
     if (!session) {
@@ -320,18 +310,24 @@ export class AuthService {
     const now = new Date();
     const shouldRotate =
       now.getTime() - session.lastRotatedAt.getTime() >= this.getSessionRotationWindowMs();
+    const shouldTouch =
+      now.getTime() - session.lastUsedAt.getTime() >= this.getSessionTouchIntervalMs();
     let rotatedToken: string | undefined;
-
-    const updatedSession = await this.prismaService.session.update({
-      where: { id: session.id },
-      data: {
-        lastUsedAt: now,
-        lastRotatedAt: shouldRotate ? now : undefined,
-        tokenHash: shouldRotate ? this.hashToken((rotatedToken = this.generateToken())) : undefined,
-        ipAddress: metadata.ipAddress ?? session.ipAddress ?? null,
-        userAgent: metadata.userAgent ?? session.userAgent ?? null
-      }
-    });
+    const shouldPersistSession = shouldRotate || shouldTouch;
+    const updatedSession = shouldPersistSession
+      ? await this.prismaService.session.update({
+          where: { id: session.id },
+          data: {
+            lastUsedAt: now,
+            lastRotatedAt: shouldRotate ? now : undefined,
+            tokenHash: shouldRotate
+              ? this.hashToken((rotatedToken = this.generateToken()))
+              : undefined,
+            ipAddress: metadata.ipAddress ?? session.ipAddress ?? null,
+            userAgent: metadata.userAgent ?? session.userAgent ?? null
+          }
+        })
+      : session;
 
     return {
       user: this.toSessionUser(session.user),
@@ -371,7 +367,10 @@ export class AuthService {
     return this.configService.get<string>('SESSION_COOKIE_NAME', 'ultimate_template_session');
   }
 
-  private async createAuthResult(user: User, metadata: SessionMetadata) {
+  private async createAuthResult(
+    user: Pick<User, 'id' | 'email' | 'name' | 'role'> | PublicUserRecord,
+    metadata: SessionMetadata
+  ) {
     const { token, expiresAt } = await this.createSession(user.id, metadata);
 
     return {
@@ -419,7 +418,7 @@ export class AuthService {
     return { token, expiresAt };
   }
 
-  private toSessionUser(user: User): SessionUser {
+  private toSessionUser(user: Pick<User, 'id' | 'email' | 'name' | 'role'> | PublicUserRecord): SessionUser {
     return {
       id: user.id,
       email: user.email,
@@ -499,6 +498,10 @@ export class AuthService {
 
   private getSessionRotationWindowMs() {
     return Number(this.configService.get<string>('SESSION_ROTATION_MS', '43200000'));
+  }
+
+  private getSessionTouchIntervalMs() {
+    return Number(this.configService.get<string>('SESSION_TOUCH_INTERVAL_MS', '600000'));
   }
 
   private getSessionMaxActive() {

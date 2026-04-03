@@ -59,7 +59,8 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Sea
           <h1 className="text-4xl font-black tracking-tight text-slate-950">Projects</h1>
           <p className="max-w-2xl text-sm leading-7 text-slate-600">
             This page is the template&apos;s reusable CRUD baseline: filters, cursor pagination,
-            archiving, detail editing, and CSV export against the real API.
+            archiving, detail editing, and CSV export against the real API. Exports stream the full
+            filtered result or fail explicitly when the synchronous limit is exceeded.
           </p>
         </div>
         <div className="flex flex-wrap gap-3">

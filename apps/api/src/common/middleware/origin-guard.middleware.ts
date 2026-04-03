@@ -26,7 +26,11 @@ export class OriginGuardMiddleware implements NestMiddleware {
     );
 
     if (!origin && !referer) {
-      if (isTest || process.env.NODE_ENV !== 'production') {
+      const allowMissingOriginForDev =
+        process.env.NODE_ENV === 'development' &&
+        process.env.ALLOW_MISSING_ORIGIN_FOR_DEV === 'true';
+
+      if (isTest || allowMissingOriginForDev) {
         next();
         return;
       }

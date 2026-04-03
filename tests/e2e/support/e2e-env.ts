@@ -29,8 +29,10 @@ export function loadE2EEnv() {
   process.env.APP_URL ??= 'http://127.0.0.1:3100';
   process.env.API_ORIGIN ??= 'http://127.0.0.1:4100';
   process.env.ALLOWED_ORIGINS ??= 'http://127.0.0.1:3100';
+  process.env.ALLOW_MISSING_ORIGIN_FOR_DEV ??= 'false';
   process.env.API_PORT ??= '4100';
   process.env.WEB_PORT ??= '3100';
+  process.env.SESSION_TOUCH_INTERVAL_MS ??= '600000';
   process.env.POSTGRES_DB ??= 'ultimate_template_e2e';
   process.env.DATABASE_URL ??=
     'postgresql://postgres:postgres@127.0.0.1:5432/ultimate_template_e2e?schema=public';
@@ -48,8 +50,10 @@ export function getE2EEnv() {
     APP_URL: process.env.APP_URL ?? 'http://127.0.0.1:3100',
     API_ORIGIN: process.env.API_ORIGIN ?? 'http://127.0.0.1:4100',
     ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS ?? 'http://127.0.0.1:3100',
+    ALLOW_MISSING_ORIGIN_FOR_DEV: process.env.ALLOW_MISSING_ORIGIN_FOR_DEV ?? 'false',
     API_PORT: process.env.API_PORT ?? '4100',
     WEB_PORT: process.env.WEB_PORT ?? '3100',
+    SESSION_TOUCH_INTERVAL_MS: process.env.SESSION_TOUCH_INTERVAL_MS ?? '600000',
     DATABASE_URL:
       process.env.DATABASE_URL ??
       'postgresql://postgres:postgres@127.0.0.1:5432/ultimate_template_e2e?schema=public'
