@@ -10,6 +10,7 @@ import { getAllowedOrigins } from './common/config/allowed-origins';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { flattenValidationErrors } from './common/validation/validation-errors';
 import { AppModule } from './modules/app.module';
+import { initializeOpenTelemetry } from './modules/observability/otel.bootstrap';
 import { PrismaService } from './modules/prisma/prisma.service';
 
 async function bootstrap() {
@@ -31,6 +32,7 @@ async function bootstrap() {
   );
 
   const configService = app.get(ConfigService);
+  const otelSdk = await initializeOpenTelemetry(configService);
   const apiPrefix = configService.get<string>('API_PREFIX', 'api');
   const sessionCookieName = configService.get<string>(
     'SESSION_COOKIE_NAME',
@@ -59,6 +61,17 @@ async function bootstrap() {
 
   const prismaService = app.get(PrismaService);
   await prismaService.enableShutdownHooks(app);
+  const shutdownObservability = async () => {
+    if (otelSdk) {
+      await otelSdk.shutdown();
+    }
+  };
+  process.once('SIGINT', () => {
+    void shutdownObservability();
+  });
+  process.once('SIGTERM', () => {
+    void shutdownObservability();
+  });
 
   const port = Number(configService.get<string>('API_PORT', '4000'));
   await app.listen(port, '0.0.0.0');

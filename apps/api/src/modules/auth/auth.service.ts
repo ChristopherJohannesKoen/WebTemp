@@ -1,44 +1,39 @@
 import {
   ConflictException,
-  ForbiddenException,
   Injectable,
-  NotFoundException,
   UnauthorizedException
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma, type User } from '@prisma/client';
 import argon2 from 'argon2';
-import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
-import type { SessionSummary, SessionUser } from '@packages/shared';
+import { createHash, randomBytes } from 'node:crypto';
+import type { SessionUser } from '@packages/shared';
 import type { AuthenticatedSession } from '../../common/types/authenticated-request';
+import { readBooleanConfig } from '../../common/config/boolean-config';
 import { publicUserSelect, type PublicUserRecord } from '../../common/prisma/public-selects';
 import { AuditService } from '../audit/audit.service';
+import { MetricsService } from '../observability/metrics.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { normalizeDisplayName, normalizeEmail } from './auth.helpers';
 import type { ForgotPasswordDto } from './dto/forgot-password.dto';
 import type { LoginDto } from './dto/login.dto';
 import type { ResetPasswordDto } from './dto/reset-password.dto';
 import type { SignupDto } from './dto/signup.dto';
+import { SessionService } from './session.service';
 
 type SessionMetadata = {
   ipAddress?: string | null;
   userAgent?: string | null;
 };
 
-type SessionContext = {
-  user: SessionUser;
-  session: AuthenticatedSession;
-  rotatedToken?: string;
-};
-
 @Injectable()
 export class AuthService {
-  private readonly sessionLifetimeMs = 1000 * 60 * 60 * 24 * 14;
-
   constructor(
     private readonly prismaService: PrismaService,
     private readonly configService: ConfigService,
-    private readonly auditService: AuditService
+    private readonly auditService: AuditService,
+    private readonly sessionService: SessionService,
+    private readonly metricsService: MetricsService
   ) {}
 
   async signUp(dto: SignupDto, metadata: SessionMetadata) {
@@ -62,6 +57,7 @@ export class AuthService {
         targetId: user.id,
         metadata: { role: user.role }
       });
+      this.metricsService.recordAuthEvent('signup_success');
 
       return this.createAuthResult(user, metadata);
     } catch (error) {
@@ -83,6 +79,7 @@ export class AuthService {
     });
 
     if (!user || !(await argon2.verify(user.passwordHash, dto.password))) {
+      this.metricsService.recordAuthEvent('login_failure');
       throw new UnauthorizedException('Invalid email or password.');
     }
 
@@ -93,6 +90,7 @@ export class AuthService {
       targetId: user.id,
       metadata: { ipAddress: metadata.ipAddress ?? null }
     });
+    this.metricsService.recordAuthEvent('login_success');
 
     return this.createAuthResult(user, metadata);
   }
@@ -102,11 +100,10 @@ export class AuthService {
       return;
     }
 
-    await this.prismaService.session.deleteMany({
-      where: { tokenHash: this.hashToken(sessionToken) }
-    });
+    await this.sessionService.destroySession(sessionToken);
 
     if (actorId) {
+      this.metricsService.recordAuthEvent('logout');
       await this.auditService.log({
         actorId,
         action: 'auth.logout',
@@ -117,9 +114,8 @@ export class AuthService {
   }
 
   async logoutAll(currentUser: SessionUser) {
-    await this.prismaService.session.deleteMany({
-      where: { userId: currentUser.id }
-    });
+    await this.sessionService.destroyAllSessions(currentUser.id);
+    this.metricsService.recordAuthEvent('logout_all');
 
     await this.auditService.log({
       actorId: currentUser.id,
@@ -132,48 +128,28 @@ export class AuthService {
   }
 
   async listSessions(currentUser: SessionUser, currentSessionId?: string) {
-    const sessions = await this.prismaService.session.findMany({
-      where: { userId: currentUser.id },
-      orderBy: [{ lastUsedAt: 'desc' }, { createdAt: 'desc' }]
-    });
-
-    return {
-      items: sessions.map((session) =>
-        this.toSessionSummary(session, currentSessionId)
-      )
-    };
+    return this.sessionService.listSessions(currentUser, currentSessionId);
   }
 
   async revokeSession(currentUser: SessionUser, sessionId: string, currentSessionId?: string) {
-    const session = await this.prismaService.session.findFirst({
-      where: {
-        id: sessionId,
-        userId: currentUser.id
-      }
-    });
-
-    if (!session) {
-      throw new NotFoundException('Session not found.');
-    }
-
-    await this.prismaService.session.delete({
-      where: { id: session.id }
-    });
+    const result = await this.sessionService.revokeSession(
+      currentUser,
+      sessionId,
+      currentSessionId
+    );
 
     await this.auditService.log({
       actorId: currentUser.id,
       action: 'auth.session_revoked',
       targetType: 'session',
-      targetId: session.id,
+      targetId: sessionId,
       metadata: {
-        revokedCurrent: session.id === currentSessionId
+        revokedCurrent: result.revokedCurrent
       }
     });
+    this.metricsService.recordAuthEvent('session_revoked');
 
-    return {
-      ok: true,
-      revokedCurrent: session.id === currentSessionId
-    };
+    return result;
   }
 
   async requestPasswordReset(dto: ForgotPasswordDto) {
@@ -188,6 +164,7 @@ export class AuthService {
 
     const message =
       'If the account exists, a password reset link has been generated for this environment.';
+    this.metricsService.recordAuthEvent('password_reset_requested');
 
     if (!user) {
       return { message };
@@ -211,10 +188,11 @@ export class AuthService {
       targetId: user.id
     });
 
-    if (this.configService.get<string>('NODE_ENV') === 'production') {
+    if (!this.shouldExposeResetDetails()) {
       return { message };
     }
 
+    this.metricsService.recordAuthEvent('password_reset_details_exposed');
     const appUrl = this.configService.get<string>('APP_URL', 'http://localhost:3000');
 
     return {
@@ -261,215 +239,57 @@ export class AuthService {
       targetType: 'user',
       targetId: user.id
     });
+    this.metricsService.recordAuthEvent('password_reset_completed');
 
     return this.createAuthResult(user, metadata);
   }
 
   async issueCsrfToken(sessionId: string) {
-    const rawToken = this.generateToken();
-
-    await this.prismaService.session.update({
-      where: { id: sessionId },
-      data: {
-        csrfTokenHash: this.hashToken(rawToken)
-      }
-    });
-
-    return rawToken;
+    return this.sessionService.issueCsrfToken(sessionId);
   }
 
   assertCsrfToken(session: AuthenticatedSession | undefined, rawToken: string | undefined) {
-    if (!session || !rawToken) {
-      throw new ForbiddenException('A valid CSRF token is required.');
-    }
-
-    if (!this.hashMatches(session.csrfTokenHash, this.hashToken(rawToken))) {
-      throw new ForbiddenException('A valid CSRF token is required.');
-    }
+    return this.sessionService.assertCsrfToken(session, rawToken);
   }
 
   async getSessionContextFromToken(
     rawToken: string,
     metadata: SessionMetadata
-  ): Promise<SessionContext | undefined> {
-    const tokenHash = this.hashToken(rawToken);
-    const session = await this.prismaService.session.findUnique({
-      where: { tokenHash },
-      include: { user: { select: publicUserSelect } }
-    });
-
-    if (!session) {
-      return undefined;
-    }
-
-    if (session.expiresAt < new Date()) {
-      await this.prismaService.session.delete({ where: { id: session.id } });
-      return undefined;
-    }
-
-    const now = new Date();
-    const shouldRotate =
-      now.getTime() - session.lastRotatedAt.getTime() >= this.getSessionRotationWindowMs();
-    const shouldTouch =
-      now.getTime() - session.lastUsedAt.getTime() >= this.getSessionTouchIntervalMs();
-    let rotatedToken: string | undefined;
-    const shouldPersistSession = shouldRotate || shouldTouch;
-    const updatedSession = shouldPersistSession
-      ? await this.prismaService.session.update({
-          where: { id: session.id },
-          data: {
-            lastUsedAt: now,
-            lastRotatedAt: shouldRotate ? now : undefined,
-            tokenHash: shouldRotate
-              ? this.hashToken((rotatedToken = this.generateToken()))
-              : undefined,
-            ipAddress: metadata.ipAddress ?? session.ipAddress ?? null,
-            userAgent: metadata.userAgent ?? session.userAgent ?? null
-          }
-        })
-      : session;
-
-    return {
-      user: this.toSessionUser(session.user),
-      session: this.toAuthenticatedSession(updatedSession),
-      rotatedToken
-    };
+  ) {
+    return this.sessionService.resolveSessionContext(rawToken, metadata);
   }
 
   async getSessionUserFromToken(rawToken: string) {
-    return (await this.getSessionContextFromToken(rawToken, {}))?.user;
+    return this.sessionService.resolveSessionUser(rawToken);
   }
 
   getCookieOptions(expiresAt: Date) {
-    const isProduction = this.configService.get<string>('NODE_ENV') === 'production';
-
-    return {
-      httpOnly: true,
-      sameSite: 'lax' as const,
-      secure: isProduction,
-      expires: expiresAt,
-      path: '/'
-    };
+    return this.sessionService.getCookieOptions(expiresAt);
   }
 
   getClearCookieOptions() {
-    const isProduction = this.configService.get<string>('NODE_ENV') === 'production';
-
-    return {
-      httpOnly: true,
-      sameSite: 'lax' as const,
-      secure: isProduction,
-      path: '/'
-    };
+    return this.sessionService.getClearCookieOptions();
   }
 
   getCookieName() {
-    return this.configService.get<string>('SESSION_COOKIE_NAME', 'ultimate_template_session');
+    return this.sessionService.getCookieName();
   }
 
   private async createAuthResult(
     user: Pick<User, 'id' | 'email' | 'name' | 'role'> | PublicUserRecord,
     metadata: SessionMetadata
   ) {
-    const { token, expiresAt } = await this.createSession(user.id, metadata);
+    const { token, expiresAt } = await this.sessionService.createSession(user.id, metadata);
 
     return {
-      user: this.toSessionUser(user),
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role
+      },
       token,
       expiresAt
-    };
-  }
-
-  private async createSession(userId: string, metadata: SessionMetadata) {
-    const token = this.generateToken();
-    const expiresAt = new Date(Date.now() + this.sessionLifetimeMs);
-    const csrfTokenSeed = this.generateToken();
-
-    await this.prismaService.$transaction(async (transaction) => {
-      await transaction.session.create({
-        data: {
-          tokenHash: this.hashToken(token),
-          csrfTokenHash: this.hashToken(csrfTokenSeed),
-          userId,
-          expiresAt,
-          ipAddress: metadata.ipAddress ?? null,
-          userAgent: metadata.userAgent ?? null
-        }
-      });
-
-      const overflowSessions = await transaction.session.findMany({
-        where: { userId },
-        orderBy: [{ lastUsedAt: 'desc' }, { createdAt: 'desc' }],
-        skip: this.getSessionMaxActive(),
-        select: { id: true }
-      });
-
-      if (overflowSessions.length > 0) {
-        await transaction.session.deleteMany({
-          where: {
-            id: {
-              in: overflowSessions.map((session) => session.id)
-            }
-          }
-        });
-      }
-    });
-
-    return { token, expiresAt };
-  }
-
-  private toSessionUser(user: Pick<User, 'id' | 'email' | 'name' | 'role'> | PublicUserRecord): SessionUser {
-    return {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      role: user.role
-    };
-  }
-
-  private toAuthenticatedSession(session: {
-    id: string;
-    userId: string;
-    csrfTokenHash: string;
-    expiresAt: Date;
-    createdAt: Date;
-    lastUsedAt: Date;
-    lastRotatedAt: Date;
-    ipAddress: string | null;
-    userAgent: string | null;
-  }): AuthenticatedSession {
-    return {
-      id: session.id,
-      userId: session.userId,
-      csrfTokenHash: session.csrfTokenHash,
-      expiresAt: session.expiresAt,
-      createdAt: session.createdAt,
-      lastUsedAt: session.lastUsedAt,
-      lastRotatedAt: session.lastRotatedAt,
-      ipAddress: session.ipAddress,
-      userAgent: session.userAgent
-    };
-  }
-
-  private toSessionSummary(
-    session: {
-      id: string;
-      createdAt: Date;
-      lastUsedAt: Date;
-      expiresAt: Date;
-      ipAddress: string | null;
-      userAgent: string | null;
-    },
-    currentSessionId?: string
-  ): SessionSummary {
-    return {
-      id: session.id,
-      ipAddress: session.ipAddress,
-      userAgent: session.userAgent,
-      createdAt: session.createdAt.toISOString(),
-      lastUsedAt: session.lastUsedAt.toISOString(),
-      expiresAt: session.expiresAt.toISOString(),
-      isCurrent: session.id === currentSessionId
     };
   }
 
@@ -484,27 +304,20 @@ export class AuthService {
     return createHash('sha256').update(token).digest('hex');
   }
 
-  private hashMatches(expectedHash: string, candidateHash: string) {
-    if (expectedHash.length !== candidateHash.length) {
-      return false;
-    }
-
-    return timingSafeEqual(Buffer.from(expectedHash), Buffer.from(candidateHash));
-  }
-
   private generateToken() {
     return randomBytes(32).toString('hex');
   }
 
-  private getSessionRotationWindowMs() {
-    return Number(this.configService.get<string>('SESSION_ROTATION_MS', '43200000'));
-  }
+  private shouldExposeResetDetails() {
+    const nodeEnvironment = this.configService.get<string>('NODE_ENV', 'development');
+    const exposeDevResetDetails = readBooleanConfig(
+      this.configService.get<string | boolean>(
+        'EXPOSE_DEV_RESET_DETAILS',
+        false
+      ),
+      false
+    );
 
-  private getSessionTouchIntervalMs() {
-    return Number(this.configService.get<string>('SESSION_TOUCH_INTERVAL_MS', '600000'));
-  }
-
-  private getSessionMaxActive() {
-    return Number(this.configService.get<string>('SESSION_MAX_ACTIVE', '5'));
+    return exposeDevResetDetails && ['development', 'test'].includes(nodeEnvironment);
   }
 }

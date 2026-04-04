@@ -22,7 +22,10 @@ Copy `.env.example` to `.env` and adjust values as needed.
 | `RATE_LIMIT_WINDOW_MS` | throttle window                                        | `60000`                     |
 | `RATE_LIMIT_MAX`       | throttle ceiling per window                            | `120`                       |
 | `IDEMPOTENCY_TTL_SECONDS` | replay window for protected POST requests          | `86400`                     |
+| `IDEMPOTENCY_CLEANUP_INTERVAL_MS` | interval between scheduled expired-request cleanup runs | `900000`          |
+| `IDEMPOTENCY_CLEANUP_BATCH_SIZE` | max expired idempotency rows deleted per cleanup run | `500`               |
 | `EXPORT_SYNC_LIMIT`    | max synchronous CSV export size                        | `5000`                      |
+| `EXPOSE_DEV_RESET_DETAILS` | return password reset token/url in local non-prod workflows | `false`             |
 
 ## Database Variables
 
@@ -65,7 +68,10 @@ When a feature flag is enabled, the API validates these envs before boot:
 - First-party clients fetch `GET /api/auth/csrf` and send `X-CSRF-Token` on authenticated unsafe requests.
 - Missing `Origin` or `Referer` is rejected by default outside `NODE_ENV=test`. Set `ALLOW_MISSING_ORIGIN_FOR_DEV=true` only for local development edge cases.
 - `Idempotency-Key` is required on `POST /api/auth/signup`, `POST /api/auth/password/reset`, and `POST /api/projects`.
+- Expired idempotency records are cleaned up off the request path on a bounded schedule controlled by `IDEMPOTENCY_CLEANUP_INTERVAL_MS` and `IDEMPOTENCY_CLEANUP_BATCH_SIZE`.
 - Session freshness writes are throttled by `SESSION_TOUCH_INTERVAL_MS`; authenticated requests do not rewrite `lastUsedAt` on every hit.
 - Session tokens are opaque random values hashed server-side; the core template does not require a signing secret.
+- Password reset details are never exposed by default. Set `EXPOSE_DEV_RESET_DETAILS=true` only for explicit local or test workflows.
 - `GET /api/projects/export.csv` streams the full filtered result or returns a structured `400` with `export_limit_exceeded`.
+- `GET /api/metrics` exposes Prometheus text metrics. OTLP tracing remains optional behind `FEATURE_OBSERVABILITY`.
 - Use `ALLOWED_ORIGINS` when the site must be reached from a LAN IP or a second browser origin in development.

@@ -1,6 +1,7 @@
 import { ConflictException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
+import { MetricsService } from '../observability/metrics.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 type BeginRequestInput = {
@@ -26,18 +27,11 @@ type BeginRequestResult =
 export class IdempotencyService {
   constructor(
     private readonly prismaService: PrismaService,
-    private readonly configService: ConfigService
+    private readonly configService: ConfigService,
+    private readonly metricsService: MetricsService
   ) {}
 
   async beginRequest(input: BeginRequestInput): Promise<BeginRequestResult> {
-    await this.prismaService.idempotencyRequest.deleteMany({
-      where: {
-        expiresAt: {
-          lt: new Date()
-        }
-      }
-    });
-
     try {
       const record = await this.prismaService.idempotencyRequest.create({
         data: {
@@ -50,6 +44,7 @@ export class IdempotencyService {
         }
       });
 
+      this.metricsService.recordIdempotencyEvent('new');
       return {
         kind: 'new',
         recordId: record.id
@@ -75,12 +70,14 @@ export class IdempotencyService {
         }
 
         if (existingRecord.fingerprint !== input.fingerprint) {
+          this.metricsService.recordIdempotencyEvent('fingerprint_mismatch');
           throw new ConflictException(
             'This Idempotency-Key has already been used for a different request payload.'
           );
         }
 
         if (existingRecord.status === 'completed') {
+          this.metricsService.recordIdempotencyEvent('replay');
           return {
             kind: 'replay',
             statusCode: existingRecord.responseStatusCode ?? 200,
@@ -88,6 +85,7 @@ export class IdempotencyService {
           };
         }
 
+        this.metricsService.recordIdempotencyEvent('conflict');
         throw new ConflictException('A matching request is already in progress.');
       }
 
@@ -105,6 +103,7 @@ export class IdempotencyService {
         completedAt: new Date()
       }
     });
+    this.metricsService.recordIdempotencyEvent('completed');
   }
 
   async abandonRequest(recordId: string) {
@@ -114,6 +113,67 @@ export class IdempotencyService {
         status: 'pending'
       }
     });
+    this.metricsService.recordIdempotencyEvent('abandoned');
+  }
+
+  async cleanupExpiredRequests(source: 'startup' | 'scheduled') {
+    const startedAt = Date.now();
+    const ids = await this.prismaService.idempotencyRequest.findMany({
+      where: {
+        expiresAt: {
+          lt: new Date()
+        }
+      },
+      orderBy: {
+        expiresAt: 'asc'
+      },
+      take: this.getCleanupBatchSize(),
+      select: {
+        id: true
+      }
+    });
+
+    if (ids.length > 0) {
+      await this.prismaService.idempotencyRequest.deleteMany({
+        where: {
+          id: {
+            in: ids.map((record) => record.id)
+          }
+        }
+      });
+    }
+
+    const remainingExpired = await this.prismaService.idempotencyRequest.count({
+      where: {
+        expiresAt: {
+          lt: new Date()
+        }
+      }
+    });
+
+    const durationMs = Date.now() - startedAt;
+    this.metricsService.observeIdempotencyCleanup({
+      source,
+      deletedCount: ids.length,
+      durationMs,
+      remainingExpired
+    });
+    console.info(
+      JSON.stringify({
+        level: 'info',
+        message: 'idempotency.cleanup',
+        source,
+        deletedCount: ids.length,
+        remainingExpired,
+        durationMs
+      })
+    );
+
+    return {
+      deletedCount: ids.length,
+      remainingExpired,
+      durationMs
+    };
   }
 
   createFingerprint(payload: unknown) {
@@ -143,5 +203,11 @@ export class IdempotencyService {
 
   private getIdempotencyTtlSeconds() {
     return Number(this.configService.get<string>('IDEMPOTENCY_TTL_SECONDS', '86400'));
+  }
+
+  private getCleanupBatchSize() {
+    return Number(
+      this.configService.get<string>('IDEMPOTENCY_CLEANUP_BATCH_SIZE', '500')
+    );
   }
 }

@@ -1,16 +1,14 @@
 import { Injectable, NestMiddleware } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
-import { createHash, randomBytes } from 'node:crypto';
 import type { NextFunction, Response } from 'express';
-import { publicUserSelect } from '../prisma/public-selects';
 import type { AuthenticatedRequest } from '../types/authenticated-request';
-
-const prisma = new PrismaClient();
+import { SessionService } from '../../modules/auth/session.service';
 
 @Injectable()
 export class SessionMiddleware implements NestMiddleware {
+  constructor(private readonly sessionService: SessionService) {}
+
   async use(request: AuthenticatedRequest, response: Response, next: NextFunction) {
-    const cookieName = process.env.SESSION_COOKIE_NAME ?? 'ultimate_template_session';
+    const cookieName = this.sessionService.getCookieName();
     const token = request.cookies?.[cookieName];
 
     if (!token || typeof token !== 'string') {
@@ -19,93 +17,26 @@ export class SessionMiddleware implements NestMiddleware {
     }
 
     request.sessionToken = token;
-    const session = await prisma.session.findUnique({
-      where: { tokenHash: hashToken(token) },
-      include: { user: { select: publicUserSelect } }
+    const sessionContext = await this.sessionService.resolveSessionContext(token, {
+      ipAddress: request.ip,
+      userAgent: request.header('user-agent')
     });
 
-    if (!session) {
+    if (!sessionContext) {
       next();
       return;
     }
 
-    if (session.expiresAt < new Date()) {
-      await prisma.session.delete({ where: { id: session.id } });
-      next();
-      return;
-    }
+    this.sessionService.attachSessionToRequest(request, sessionContext);
 
-    const now = new Date();
-    const shouldRotate =
-      now.getTime() - session.lastRotatedAt.getTime() >= getSessionRotationWindowMs();
-    const shouldTouch =
-      now.getTime() - session.lastUsedAt.getTime() >= getSessionTouchIntervalMs();
-    const rotatedToken = shouldRotate ? generateToken() : undefined;
-    const shouldPersistSession = shouldRotate || shouldTouch;
-    const updatedSession = shouldPersistSession
-      ? await prisma.session.update({
-          where: { id: session.id },
-          data: {
-            lastUsedAt: now,
-            lastRotatedAt: shouldRotate ? now : undefined,
-            tokenHash: rotatedToken ? hashToken(rotatedToken) : undefined,
-            ipAddress: request.ip ?? session.ipAddress ?? null,
-            userAgent: request.header('user-agent') ?? session.userAgent ?? null
-          }
-        })
-      : session;
-
-    request.currentUser = {
-      id: session.user.id,
-      email: session.user.email,
-      name: session.user.name,
-      role: session.user.role
-    };
-    request.currentSession = {
-      id: updatedSession.id,
-      userId: updatedSession.userId,
-      csrfTokenHash: updatedSession.csrfTokenHash,
-      expiresAt: updatedSession.expiresAt,
-      createdAt: updatedSession.createdAt,
-      lastUsedAt: updatedSession.lastUsedAt,
-      lastRotatedAt: updatedSession.lastRotatedAt,
-      ipAddress: updatedSession.ipAddress,
-      userAgent: updatedSession.userAgent
-    };
-
-    if (rotatedToken) {
-      request.sessionToken = rotatedToken;
-      response.cookie(cookieName, rotatedToken, getCookieOptions(updatedSession.expiresAt));
+    if (sessionContext.rotatedToken) {
+      response.cookie(
+        cookieName,
+        sessionContext.rotatedToken,
+        this.sessionService.getCookieOptions(sessionContext.session.expiresAt)
+      );
     }
 
     next();
   }
-}
-
-function hashToken(token: string) {
-  return createHash('sha256').update(token).digest('hex');
-}
-
-function generateToken() {
-  return randomBytes(32).toString('hex');
-}
-
-function getSessionRotationWindowMs() {
-  return Number(process.env.SESSION_ROTATION_MS ?? '43200000');
-}
-
-function getSessionTouchIntervalMs() {
-  return Number(process.env.SESSION_TOUCH_INTERVAL_MS ?? '600000');
-}
-
-function getCookieOptions(expiresAt: Date) {
-  const isProduction = process.env.NODE_ENV === 'production';
-
-  return {
-    httpOnly: true,
-    sameSite: 'lax' as const,
-    secure: isProduction,
-    expires: expiresAt,
-    path: '/'
-  };
 }

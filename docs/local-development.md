@@ -49,6 +49,7 @@ Keep these credentials in local docs only. The public login and signup pages int
 - `npm run typecheck`
 - `npm test`
 - `npm run test:e2e`
+- `npm run docs:check`
 - `npm run build`
 
 ## Troubleshooting
@@ -57,7 +58,9 @@ Keep these credentials in local docs only. The public login and signup pages int
 - If the first admin account is missing, rerun `npm run db:setup`; owner bootstrap comes from seed data, not public signup.
 - If auth requests fail across origins, confirm `APP_URL`, `API_ORIGIN`, and `ALLOWED_ORIGINS` match the actual local or LAN URLs.
 - If a local non-browser client cannot send `Origin` or `Referer`, set `ALLOW_MISSING_ORIGIN_FOR_DEV=true` only for that development session.
+- If you need a raw reset token or reset URL locally, set `EXPOSE_DEV_RESET_DETAILS=true` for that session only; it stays off by default.
 - If authenticated writes fail with `403`, fetch a fresh CSRF token by reloading the page or calling `GET /api/auth/csrf` from the first-party client.
 - If protected POST requests fail with `400`, confirm the client sends `Idempotency-Key` on signup, password reset completion, and project creation.
+- If you want local metrics and dashboards, start the optional observability profile and scrape `http://localhost:4000/api/metrics`.
 - If the web app cannot load seeded data, rerun `npm run db:setup`.
 - If Playwright is installed but browsers are missing, run `npx playwright install chromium`.

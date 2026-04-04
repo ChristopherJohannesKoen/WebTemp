@@ -1,6 +1,7 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
+import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { validateEnvironment } from '../common/config/environment.validation';
 import { CsrfMiddleware } from '../common/middleware/csrf.middleware';
@@ -14,6 +15,7 @@ import { AuthModule } from './auth/auth.module';
 import { AuthController } from './auth/auth.controller';
 import { HealthModule } from './health/health.module';
 import { HealthController } from './health/health.controller';
+import { ObservabilityModule } from './observability/observability.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ProjectsModule } from './projects/projects.module';
 import { ProjectsController } from './projects/projects.controller';
@@ -32,7 +34,9 @@ import { UsersController } from './users/users.controller';
         limit: Number(process.env.RATE_LIMIT_MAX ?? '120')
       }
     ]),
+    ScheduleModule.forRoot(),
     PrismaModule,
+    ObservabilityModule,
     AuditModule,
     AuthModule,
     UsersModule,
@@ -41,6 +45,10 @@ import { UsersController } from './users/users.controller';
     HealthModule
   ],
   providers: [
+    RequestContextMiddleware,
+    SessionMiddleware,
+    OriginGuardMiddleware,
+    CsrfMiddleware,
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard
@@ -49,18 +57,8 @@ import { UsersController } from './users/users.controller';
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    const requestContextMiddleware = new RequestContextMiddleware();
-    const sessionMiddleware = new SessionMiddleware();
-    const originGuardMiddleware = new OriginGuardMiddleware();
-    const csrfMiddleware = new CsrfMiddleware();
-
     consumer
-      .apply(
-        requestContextMiddleware.use.bind(requestContextMiddleware),
-        sessionMiddleware.use.bind(sessionMiddleware),
-        originGuardMiddleware.use.bind(originGuardMiddleware),
-        csrfMiddleware.use.bind(csrfMiddleware)
-      )
+      .apply(RequestContextMiddleware, SessionMiddleware, OriginGuardMiddleware, CsrfMiddleware)
       .forRoutes(AuthController, UsersController, AdminController, ProjectsController, HealthController);
   }
 }

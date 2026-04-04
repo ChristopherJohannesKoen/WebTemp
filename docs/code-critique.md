@@ -34,6 +34,7 @@ The original implementation used `user.count() === 0` to promote the first accou
 **Status after the hardening pass:** `closed`
 
 **Resolution:**
+
 - Public signup now always creates `member`.
 - The initial owner is established by the seed/setup flow, not by public runtime behavior.
 
@@ -47,6 +48,7 @@ The original middleware allowed missing `Origin` and `Referer` in every non-prod
 **Status after the hardening pass:** `closed`
 
 **Resolution:**
+
 - Missing `Origin` and `Referer` is now rejected by default outside `NODE_ENV=test`.
 - Local development can opt in explicitly with `ALLOW_MISSING_ORIGIN_FOR_DEV=true`.
 - CSRF token validation remains the primary protection for authenticated unsafe requests.
@@ -61,6 +63,7 @@ The previous `include: { creator: true }` pattern pulled full related user rows 
 **Status after the hardening pass:** `closed`
 
 **Resolution:**
+
 - Project queries now use shared public relation selects limited to `id`, `email`, `name`, and `role`.
 - The same pattern is documented for future modules.
 
@@ -74,6 +77,7 @@ The core session model uses opaque random tokens hashed server-side. A required 
 **Status after the hardening pass:** `closed`
 
 **Resolution:**
+
 - `SESSION_SECRET` was removed from the required core environment contract.
 - Docs now describe the actual opaque session model.
 
@@ -87,6 +91,7 @@ Updating `lastUsedAt` on every authenticated request creates avoidable write amp
 **Status after the hardening pass:** `closed`
 
 **Resolution:**
+
 - Session freshness writes are throttled by `SESSION_TOUCH_INTERVAL_MS`.
 - Session rotation and revocation behavior remain intact.
 
@@ -100,6 +105,7 @@ Returning `403` for missing authentication blurred the line between "login requi
 **Status after the hardening pass:** `closed`
 
 **Resolution:**
+
 - Role-protected routes now return `401` when no authenticated user is present.
 - `403` remains reserved for authenticated-but-forbidden requests.
 
@@ -113,6 +119,7 @@ The earlier critique flagged silent truncation risk. The template now uses strea
 **Status after the hardening pass:** `closed`
 
 **Resolution:**
+
 - Synchronous export now returns the full filtered result or a structured `400`.
 - Over-limit responses carry the machine-readable code `export_limit_exceeded`.
 - Docs and UI copy now describe that behavior.
@@ -127,6 +134,7 @@ Security regressions tend to cluster around origin rules, CSRF, auth semantics, 
 **Status after the hardening pass:** `partially addressed`
 
 **What was added:**
+
 - signup/bootstrap tests for seeded-owner-only behavior
 - middleware-boundary tests for origin and CSRF behavior
 - HTTP-boundary tests for `401` vs `403`
@@ -134,6 +142,7 @@ Security regressions tend to cluster around origin rules, CSRF, auth semantics, 
 - session touch/rotation tests
 
 **What remains worth adding later:**
+
 - a real database-level bootstrap invariant test if the template ever reintroduces runtime owner bootstrap logic
 - deeper stress/concurrency coverage around session churn and multi-actor administrative workflows
 

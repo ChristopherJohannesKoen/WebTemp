@@ -3,10 +3,22 @@ import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import argon2 from 'argon2';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthService } from '../src/modules/auth/auth.service';
+import { SessionService } from '../src/modules/auth/session.service';
 
 function createConfigService(overrides: Record<string, string> = {}) {
   return {
     get: vi.fn((key: string, defaultValue?: string) => overrides[key] ?? defaultValue)
+  };
+}
+
+function createMetricsService() {
+  return {
+    observeHttpRequest: vi.fn(),
+    recordAuthEvent: vi.fn(),
+    recordSessionEvent: vi.fn(),
+    recordSecurityEvent: vi.fn(),
+    recordIdempotencyEvent: vi.fn(),
+    observeIdempotencyCleanup: vi.fn()
   };
 }
 
@@ -15,6 +27,33 @@ function withSessionTransaction(prismaService: Record<string, unknown>) {
     ...prismaService,
     $transaction: vi.fn(async (callback: (transaction: Record<string, unknown>) => unknown) =>
       callback(prismaService)
+    )
+  };
+}
+
+function createAuthService(
+  prismaService: Record<string, unknown>,
+  configOverrides: Record<string, string> = {},
+  auditService: { log: ReturnType<typeof vi.fn> }
+) {
+  const configService = createConfigService(configOverrides);
+  const metricsService = createMetricsService();
+  const sessionService = new SessionService(
+    prismaService as never,
+    configService as never,
+    metricsService as never
+  );
+
+  return {
+    configService,
+    metricsService,
+    sessionService,
+    authService: new AuthService(
+      prismaService as never,
+      configService as never,
+      auditService as never,
+      sessionService,
+      metricsService as never
     )
   };
 }
@@ -45,14 +84,14 @@ describe('AuthService', () => {
       }
     };
 
-    const service = new AuthService(
-      withSessionTransaction(prismaService) as never,
-      createConfigService({
+    const { authService: service } = createAuthService(
+      withSessionTransaction(prismaService),
+      {
         ARGON2_MEMORY_COST: '1024',
         SESSION_MAX_ACTIVE: '5',
         SESSION_COOKIE_NAME: 'test_session'
-      }) as never,
-      auditService as never
+      },
+      auditService
     );
 
     const result = await service.signUp(
@@ -103,13 +142,13 @@ describe('AuthService', () => {
       }
     };
 
-    const service = new AuthService(
-      withSessionTransaction(prismaService) as never,
-      createConfigService({
+    const { authService: service } = createAuthService(
+      withSessionTransaction(prismaService),
+      {
         ARGON2_MEMORY_COST: '1024',
         SESSION_MAX_ACTIVE: '5'
-      }) as never,
-      auditService as never
+      },
+      auditService
     );
 
     const [firstSignup, secondSignup] = await Promise.all([
@@ -154,12 +193,12 @@ describe('AuthService', () => {
       }
     };
 
-    const service = new AuthService(
-      prismaService as never,
-      createConfigService({
+    const { authService: service } = createAuthService(
+      prismaService,
+      {
         ARGON2_MEMORY_COST: '1024'
-      }) as never,
-      auditService as never
+      },
+      auditService
     );
 
     await expect(
@@ -173,7 +212,7 @@ describe('AuthService', () => {
     ).rejects.toBeInstanceOf(UnauthorizedException);
   });
 
-  it('returns a development reset link when the user exists', async () => {
+  it('returns a reset link only when explicitly enabled for non-production environments', async () => {
     const prismaService = {
       user: {
         findUnique: vi.fn().mockResolvedValue({
@@ -186,14 +225,15 @@ describe('AuthService', () => {
       }
     };
 
-    const service = new AuthService(
-      prismaService as never,
-      createConfigService({
+    const { authService: service } = createAuthService(
+      prismaService,
+      {
         NODE_ENV: 'development',
         APP_URL: 'http://localhost:3000',
+        EXPOSE_DEV_RESET_DETAILS: 'true',
         ARGON2_MEMORY_COST: '1024'
-      }) as never,
-      auditService as never
+      },
+      auditService
     );
 
     const result = await service.requestPasswordReset({
@@ -207,6 +247,38 @@ describe('AuthService', () => {
         action: 'auth.password_reset_requested'
       })
     );
+  });
+
+  it('hides reset details when non-production exposure is not explicitly enabled', async () => {
+    const prismaService = {
+      user: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'user_member',
+          email: 'member@example.com'
+        })
+      },
+      passwordResetToken: {
+        create: vi.fn().mockResolvedValue(undefined)
+      }
+    };
+
+    const { authService: service } = createAuthService(
+      prismaService,
+      {
+        NODE_ENV: 'development',
+        APP_URL: 'http://localhost:3000',
+        EXPOSE_DEV_RESET_DETAILS: 'false',
+        ARGON2_MEMORY_COST: '1024'
+      },
+      auditService
+    );
+
+    const result = await service.requestPasswordReset({
+      email: 'member@example.com'
+    });
+
+    expect(result.resetToken).toBeUndefined();
+    expect(result.resetUrl).toBeUndefined();
   });
 
   it('invalidates expired sessions when resolving the current user', async () => {
@@ -226,12 +298,12 @@ describe('AuthService', () => {
       }
     };
 
-    const service = new AuthService(
-      prismaService as never,
-      createConfigService({
+    const { authService: service } = createAuthService(
+      prismaService,
+      {
         ARGON2_MEMORY_COST: '1024'
-      }) as never,
-      auditService as never
+      },
+      auditService
     );
 
     const currentUser = await service.getSessionUserFromToken('raw-token');
@@ -243,12 +315,12 @@ describe('AuthService', () => {
   });
 
   it('requires a matching CSRF token for authenticated mutations', () => {
-    const service = new AuthService(
-      {} as never,
-      createConfigService({
+    const { authService: service } = createAuthService(
+      {},
+      {
         ARGON2_MEMORY_COST: '1024'
-      }) as never,
-      auditService as never
+      },
+      auditService
     );
 
     expect(() =>
@@ -294,14 +366,14 @@ describe('AuthService', () => {
       }
     };
 
-    const service = new AuthService(
-      prismaService as never,
-      createConfigService({
+    const { authService: service } = createAuthService(
+      prismaService,
+      {
         ARGON2_MEMORY_COST: '1024',
         SESSION_ROTATION_MS: '3600000',
         SESSION_TOUCH_INTERVAL_MS: '600000'
-      }) as never,
-      auditService as never
+      },
+      auditService
     );
 
     const sessionContext = await service.getSessionContextFromToken('raw-token', {
@@ -349,14 +421,14 @@ describe('AuthService', () => {
       }
     };
 
-    const service = new AuthService(
-      prismaService as never,
-      createConfigService({
+    const { authService: service } = createAuthService(
+      prismaService,
+      {
         ARGON2_MEMORY_COST: '1024',
         SESSION_ROTATION_MS: '1000',
         SESSION_TOUCH_INTERVAL_MS: '600000'
-      }) as never,
-      auditService as never
+      },
+      auditService
     );
 
     const sessionContext = await service.getSessionContextFromToken('raw-token', {

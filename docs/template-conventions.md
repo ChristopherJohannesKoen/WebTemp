@@ -30,6 +30,12 @@
 - Public relation selects should expose only the fields the web/API contract actually needs, such as `id`, `email`, `name`, and `role`.
 - Password hashes and other sensitive columns should only be loaded in code paths that explicitly perform authentication work.
 
+## Prisma Ownership
+
+- `PrismaService` is the only allowed owner of `PrismaClient` in application runtime code.
+- Do not instantiate `new PrismaClient()` inside middleware, controllers, services, or module files.
+- If a cross-cutting path needs DB access, inject `PrismaService` or a feature service that already owns the query logic.
+
 ## Request Integrity
 
 - Require `Idempotency-Key` on high-value POST endpoints that create or finalize state.

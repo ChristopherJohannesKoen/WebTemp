@@ -1,0 +1,20 @@
+groups:
+  - name: ultimate-template-alerts
+    rules:
+      - alert: UltimateTemplateApi5xxSpike
+        expr: rate(ultimate_template_http_requests_total{status_code=~"5.."}[5m]) > 0.05
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Elevated API 5xx rate
+          description: The API is returning 5xx responses above the expected baseline.
+
+      - alert: UltimateTemplateIdempotencyBacklog
+        expr: ultimate_template_idempotency_expired_backlog > 100
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: Idempotency cleanup backlog growing
+          description: Expired idempotency rows are accumulating faster than cleanup can remove them.

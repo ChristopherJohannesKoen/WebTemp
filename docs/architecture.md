@@ -9,6 +9,7 @@ This repository is a reusable single-tenant SaaS template. It is intentionally o
 - `apps/web` renders the public marketing shell and authenticated dashboard.
 - `apps/web` proxies `/api/*` requests to Nest through the server-side `API_ORIGIN` variable.
 - `apps/api` exposes REST endpoints under `/api`, serves Swagger at `/api/docs`, and manages auth, CSRF, idempotency, RBAC, auditing, and projects.
+- `apps/api` also exposes Prometheus-compatible runtime metrics at `/api/metrics`.
 - `packages/db` owns Prisma schema, migrations, and seed data.
 - `Postgres` is the only required backing service in v1.
 
@@ -34,6 +35,7 @@ This repository is a reusable single-tenant SaaS template. It is intentionally o
 - origin checks for mutating requests as secondary defense
 - throttling via Nest throttler
 - structured request IDs and audit records
+- Prometheus-compatible request, auth, session, security, and idempotency metrics
 - validation-first request handling with class-validator and a shared JSON error envelope
 
 ## Security Invariants
@@ -43,6 +45,7 @@ This repository is a reusable single-tenant SaaS template. It is intentionally o
 - Mutating first-party browser requests require a valid CSRF token, and origin checks stay strict by default outside tests.
 - Synchronous CSV export must return the full filtered result or fail explicitly; it must never silently truncate.
 - Non-authentication code paths must not hydrate password hashes or other sensitive user fields when public relation selects are sufficient.
+- `PrismaClient` must only be owned by `PrismaService`; middleware and feature modules must never instantiate their own client.
 - The web tier forwards only the configured session cookie to the API; unrelated browser cookies must never become auth inputs.
 - Protected route failures must distinguish `401`, `403`, `404`, and upstream errors instead of collapsing them into redirects or fake not-found states.
 
@@ -68,4 +71,6 @@ The web app and API both rely on these schemas so UI and server drift is reduced
 
 ## Extension Strategy
 
-The default template intentionally avoids hard dependencies on Redis, object storage, email delivery, worker orchestration, and observability collectors. Optional infrastructure is scaffolded in `infra/compose`, feature-gated through env validation, and documented as extension slots rather than mandatory runtime components.
+The default template intentionally avoids hard dependencies on Redis, object storage, email delivery, worker orchestration, and distributed tracing collectors. Optional infrastructure is scaffolded in `infra/compose`, feature-gated through env validation, and documented as extension slots rather than mandatory runtime components.
+
+Prometheus and Grafana are included as optional observability profiles so teams can adopt a working metrics stack without changing the core runtime contract.

@@ -61,8 +61,11 @@ class SecurityMiddlewareTestController {
 class SecurityMiddlewareTestModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     const fakeSessionMiddleware = new FakeSessionMiddleware();
-    const originGuardMiddleware = new OriginGuardMiddleware();
-    const csrfMiddleware = new CsrfMiddleware();
+    const metricsService = {
+      recordSecurityEvent: () => undefined
+    } as never;
+    const originGuardMiddleware = new OriginGuardMiddleware(metricsService);
+    const csrfMiddleware = new CsrfMiddleware(metricsService);
 
     consumer
       .apply(
