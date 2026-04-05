@@ -53,8 +53,12 @@ This repository is a reusable single-tenant SaaS template. It is intentionally o
 
 - `apps/web/middleware.ts` issues a per-request nonce and sets CSP, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, and related browser hardening headers.
 - The nonce-based CSP forces dynamic rendering so Next.js can attach the nonce to framework and page scripts at request time.
+- Style hardening is staged: the enforced policy remains stable while an optional `Content-Security-Policy-Report-Only` header can exercise a stricter nonce-based style policy before full enforcement.
 - Public auth pages do not render seeded local credentials or privileged bootstrap hints; those stay in docs and runbooks only.
 - The web server bridge retries unsafe requests only for explicit `csrf_invalid` responses and forwards only `SESSION_COOKIE_NAME` to the API.
+- The web transport validates JSON responses against shared contracts for high-value endpoints and fails fast on unexpected content types instead of casting arbitrary payloads.
+- Auth forms expose polite live error regions and field-level accessibility wiring so server and validation failures are announced consistently.
+- Dashboard navigation is role-aware in the UI, but privileged routes remain enforced again at the route and API layers.
 
 ## Shared Contracts
 

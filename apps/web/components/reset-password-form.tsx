@@ -3,37 +3,47 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import type { AuthResponse } from '@packages/shared';
 import { Button, Card, Field, Input } from '@packages/ui';
+import { clientApiRequest, clientSchemas } from '../lib/client-api';
+import { describedByIds, toFieldErrorMap } from '../lib/form-errors';
 import { toApiError } from '../lib/api-error';
-import { clientApiRequest } from '../lib/client-api';
+import { FieldErrorMessage, FormErrorMessage } from './form-feedback';
 
 export function ResetPasswordForm({ initialToken }: { initialToken?: string }) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string>();
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   async function handleSubmit(formData: FormData) {
     setPending(true);
     setError(undefined);
+    setFieldErrors({});
 
     try {
-      await clientApiRequest<AuthResponse>('/api/auth/password/reset', {
+      await clientApiRequest('/api/auth/password/reset', {
         method: 'POST',
         body: JSON.stringify({
           token: formData.get('token'),
           password: formData.get('password')
         })
-      }, { idempotent: true });
+      }, {
+        idempotent: true,
+        schema: clientSchemas.auth
+      });
 
       router.push('/app');
-      router.refresh();
     } catch (caughtError) {
-      setError(toApiError(caughtError).message);
+      const apiError = toApiError(caughtError);
+      setError(apiError.message);
+      setFieldErrors(toFieldErrorMap(apiError.errors));
     } finally {
       setPending(false);
     }
   }
+
+  const tokenError = fieldErrors.token;
+  const passwordError = fieldErrors.password;
 
   return (
     <Card className="mx-auto max-w-md bg-white/90">
@@ -45,32 +55,52 @@ export function ResetPasswordForm({ initialToken }: { initialToken?: string }) {
           link.
         </p>
       </div>
-      <form action={handleSubmit} className="mt-6 grid gap-4">
+      <form action={handleSubmit} className="mt-6 grid gap-4" data-testid="reset-password-form">
         <Field label="Reset token">
-          <Input
-            data-testid="reset-password-token"
-            defaultValue={initialToken}
-            name="token"
-            placeholder="Paste reset token"
-            required
-          />
+          <>
+            <Input
+              aria-describedby={describedByIds(tokenError && 'reset-password-token-error')}
+              aria-invalid={tokenError ? 'true' : 'false'}
+              data-testid="reset-password-token"
+              defaultValue={initialToken}
+              id="reset-password-token"
+              name="token"
+              placeholder="Paste reset token"
+              required
+            />
+            <FieldErrorMessage
+              error={tokenError}
+              id="reset-password-token-error"
+              testId="reset-password-token-error"
+            />
+          </>
         </Field>
         <Field hint="At least 8 characters" label="New password">
-          <Input
-            autoComplete="new-password"
-            data-testid="reset-password-new-password"
-            minLength={8}
-            name="password"
-            placeholder="Create a new password"
-            required
-            type="password"
-          />
+          <>
+            <Input
+              aria-describedby={describedByIds(passwordError && 'reset-password-password-error')}
+              aria-invalid={passwordError ? 'true' : 'false'}
+              autoComplete="new-password"
+              data-testid="reset-password-new-password"
+              id="reset-password-password"
+              minLength={8}
+              name="password"
+              placeholder="Create a new password"
+              required
+              type="password"
+            />
+            <FieldErrorMessage
+              error={passwordError}
+              id="reset-password-password-error"
+              testId="reset-password-password-error"
+            />
+          </>
         </Field>
-        {error ? (
-          <p className="text-sm text-rose-600" data-testid="reset-password-error">
-            {error}
-          </p>
-        ) : null}
+        <FormErrorMessage
+          error={error}
+          messageTestId="reset-password-error"
+          regionTestId="reset-password-error-region"
+        />
         <Button data-testid="reset-password-submit" disabled={pending} type="submit">
           {pending ? 'Updating password...' : 'Reset password'}
         </Button>

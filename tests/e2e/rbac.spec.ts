@@ -10,6 +10,7 @@ test('lets the owner promote a member to admin and grants admin console access',
   page
 }) => {
   await signIn(page, seededUsers.owner);
+  await expect(page.getByRole('link', { name: 'Admin' })).toBeVisible();
   await page.goto('/app/admin/users');
 
   const memberCard = page.getByTestId(`admin-user-${seededUsers.member.email}`);
@@ -19,6 +20,7 @@ test('lets the owner promote a member to admin and grants admin console access',
 
   await signOutFromSidebar(page);
   await signIn(page, seededUsers.member);
+  await expect(page.getByRole('link', { name: 'Admin' })).toBeVisible();
   await page.goto('/app/admin/users');
   const promotedMemberCard = page.getByTestId(`admin-user-${seededUsers.member.email}`);
   await expect(page.getByRole('heading', { name: 'Users' })).toBeVisible();

@@ -9,7 +9,16 @@ import type {
   UserListResponse,
   UserSummary
 } from '@packages/shared';
-import { ApiRequestError, parseApiResponse } from './api-error';
+import {
+  AuthResponseSchema,
+  ProjectListResponseSchema,
+  ProjectSchema,
+  SessionListResponseSchema,
+  UserListResponseSchema,
+  UserSummarySchema
+} from '@packages/shared';
+import type { ZodType } from 'zod';
+import { ApiRequestError, parseExpectedResponse } from './api-error';
 
 const apiOrigin = process.env.API_ORIGIN ?? 'http://localhost:4000';
 const sessionCookieName = process.env.SESSION_COOKIE_NAME ?? 'ultimate_template_session';
@@ -41,7 +50,14 @@ function getFetchOptions(path: string, init?: RequestInit) {
   };
 }
 
-async function serverApiRequest<T>(path: string, init?: RequestInit) {
+async function serverApiRequest<T>(
+  path: string,
+  init?: RequestInit,
+  options?: {
+    responseType?: 'json' | 'text' | 'empty' | 'blob';
+    schema?: ZodType<T>;
+  }
+) {
   const cookieStore = await cookies();
   const headers = new Headers(init?.headers);
   const fetchOptions = getFetchOptions(path, init);
@@ -78,12 +94,22 @@ async function serverApiRequest<T>(path: string, init?: RequestInit) {
     headers
   });
 
-  return parseApiResponse<T>(response);
+  return parseExpectedResponse<T>(response, {
+    responseType: options?.responseType,
+    schema: options?.schema
+  });
 }
 
-async function protectedServerApiRequest<T>(path: string, init?: RequestInit) {
+async function protectedServerApiRequest<T>(
+  path: string,
+  init?: RequestInit,
+  options?: {
+    responseType?: 'json' | 'text' | 'empty' | 'blob';
+    schema?: ZodType<T>;
+  }
+) {
   try {
-    return await serverApiRequest<T>(path, init);
+    return await serverApiRequest<T>(path, init, options);
   } catch (error) {
     if (error instanceof ApiRequestError && error.statusCode === 401) {
       redirect('/login');
@@ -95,7 +121,9 @@ async function protectedServerApiRequest<T>(path: string, init?: RequestInit) {
 
 export async function getCurrentUser() {
   try {
-    const response = await serverApiRequest<AuthResponse>('/auth/me');
+    const response = await serverApiRequest<AuthResponse>('/auth/me', undefined, {
+      schema: AuthResponseSchema
+    });
     return response.user;
   } catch (error) {
     if (error instanceof ApiRequestError && error.statusCode === 401) {
@@ -117,23 +145,35 @@ export async function requireCurrentUser() {
 }
 
 export async function getProjects(query = '') {
-  return protectedServerApiRequest<ProjectListResponse>(`/projects${query ? `?${query}` : ''}`);
+  return protectedServerApiRequest<ProjectListResponse>(`/projects${query ? `?${query}` : ''}`, undefined, {
+    schema: ProjectListResponseSchema
+  });
 }
 
 export async function getProject(projectId: string, query = '') {
   return protectedServerApiRequest<Project>(
-    `/projects/${projectId}${query ? `?${query}` : ''}`
+    `/projects/${projectId}${query ? `?${query}` : ''}`,
+    undefined,
+    {
+      schema: ProjectSchema
+    }
   );
 }
 
 export async function getUsers(query = '') {
-  return protectedServerApiRequest<UserListResponse>(`/admin/users${query ? `?${query}` : ''}`);
+  return protectedServerApiRequest<UserListResponse>(`/admin/users${query ? `?${query}` : ''}`, undefined, {
+    schema: UserListResponseSchema
+  });
 }
 
 export async function getUserProfile() {
-  return protectedServerApiRequest<UserSummary>('/users/me');
+  return protectedServerApiRequest<UserSummary>('/users/me', undefined, {
+    schema: UserSummarySchema
+  });
 }
 
 export async function getSessions() {
-  return protectedServerApiRequest<SessionListResponse>('/auth/sessions');
+  return protectedServerApiRequest<SessionListResponse>('/auth/sessions', undefined, {
+    schema: SessionListResponseSchema
+  });
 }

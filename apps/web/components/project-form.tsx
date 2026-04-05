@@ -4,8 +4,8 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import type { Project, ProjectUpsertPayload } from '@packages/shared';
 import { Button, Field, Input, Select, Textarea } from '@packages/ui';
+import { clientApiRequest, clientSchemas } from '../lib/client-api';
 import { toApiError } from '../lib/api-error';
-import { clientApiRequest } from '../lib/client-api';
 
 type ProjectFormProps = {
   mode: 'create' | 'edit';
@@ -30,24 +30,24 @@ export function ProjectForm({ mode, onSaved, project }: ProjectFormProps) {
     };
 
     try {
-      const response = await clientApiRequest<Project>(
+      const response = await clientApiRequest(
         project ? `/api/projects/${project.id}` : '/api/projects',
         {
           method: project ? 'PATCH' : 'POST',
           body: JSON.stringify(payload)
         },
         {
-          idempotent: !project
+          idempotent: !project,
+          schema: clientSchemas.project
         }
       );
 
       if (project) {
         onSaved?.(response);
+        router.refresh();
       } else {
         router.push(`/app/projects/${response.id}`);
       }
-
-      router.refresh();
     } catch (caughtError) {
       setError(toApiError(caughtError).message);
     } finally {

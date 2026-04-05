@@ -13,3 +13,4 @@ test-results
 apps/web/tsconfig.tsbuildinfo
 *.tsbuildinfo
 server/
+references

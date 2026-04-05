@@ -1,7 +1,25 @@
 'use client';
 
-import type { CsrfResponse } from '@packages/shared';
-import { ApiRequestError, parseApiResponse } from './api-error';
+import type {
+  AuthResponse,
+  CsrfResponse,
+  ForgotPasswordResponse,
+  OkResponse,
+  Project,
+  RevokeSessionResponse,
+  UserSummary
+} from '@packages/shared';
+import {
+  AuthResponseSchema,
+  CsrfResponseSchema,
+  ForgotPasswordResponseSchema,
+  OkResponseSchema,
+  ProjectSchema,
+  RevokeSessionResponseSchema,
+  UserSummarySchema
+} from '@packages/shared';
+import type { ZodType } from 'zod';
+import { ApiRequestError, parseExpectedResponse } from './api-error';
 
 const unsafeMethods = new Set(['POST', 'PATCH', 'PUT', 'DELETE']);
 const csrfExemptPaths = new Set([
@@ -14,8 +32,10 @@ const csrfExemptPaths = new Set([
 let csrfTokenCache: string | undefined;
 let csrfTokenPromise: Promise<string> | undefined;
 
-type ClientApiOptions = {
+type ClientApiOptions<T> = {
   idempotent?: boolean;
+  responseType?: 'json' | 'text' | 'empty' | 'blob';
+  schema?: ZodType<T>;
 };
 
 async function fetchCsrfToken(forceRefresh = false) {
@@ -27,7 +47,11 @@ async function fetchCsrfToken(forceRefresh = false) {
     csrfTokenPromise = fetch('/api/auth/csrf', {
       credentials: 'same-origin'
     })
-      .then((response) => parseApiResponse<CsrfResponse>(response))
+      .then((response) =>
+        parseExpectedResponse<CsrfResponse>(response, {
+          schema: CsrfResponseSchema
+        })
+      )
       .then((payload) => {
         csrfTokenCache = payload.csrfToken;
         return payload.csrfToken;
@@ -60,7 +84,7 @@ function createIdempotencyKey() {
 export async function clientApiRequest<T>(
   path: string,
   init?: RequestInit,
-  options?: ClientApiOptions
+  options?: ClientApiOptions<T>
 ) {
   const method = init?.method?.toUpperCase() ?? 'GET';
 
@@ -85,7 +109,10 @@ export async function clientApiRequest<T>(
       headers
     });
 
-    return parseApiResponse<T>(response);
+    return parseExpectedResponse<T>(response, {
+      responseType: options?.responseType,
+      schema: options?.schema
+    });
   }
 
   try {
@@ -109,3 +136,12 @@ export async function clientApiRequest<T>(
     throw error;
   }
 }
+
+export const clientSchemas = {
+  auth: AuthResponseSchema as ZodType<AuthResponse>,
+  forgotPassword: ForgotPasswordResponseSchema as ZodType<ForgotPasswordResponse>,
+  ok: OkResponseSchema as ZodType<OkResponse>,
+  project: ProjectSchema as ZodType<Project>,
+  revokeSession: RevokeSessionResponseSchema as ZodType<RevokeSessionResponse>,
+  user: UserSummarySchema as ZodType<UserSummary>
+};

@@ -86,6 +86,11 @@ export const AuthResponseSchema = z.object({
 });
 export type AuthResponse = z.infer<typeof AuthResponseSchema>;
 
+export const OkResponseSchema = z.object({
+  ok: z.literal(true)
+});
+export type OkResponse = z.infer<typeof OkResponseSchema>;
+
 export const CsrfResponseSchema = z.object({
   csrfToken: z.string().min(32)
 });
@@ -129,6 +134,11 @@ export const SessionListResponseSchema = z.object({
   items: z.array(SessionSummarySchema)
 });
 export type SessionListResponse = z.infer<typeof SessionListResponseSchema>;
+
+export const RevokeSessionResponseSchema = OkResponseSchema.extend({
+  revokedCurrent: z.boolean()
+});
+export type RevokeSessionResponse = z.infer<typeof RevokeSessionResponseSchema>;
 
 export const ProjectSchema = z.object({
   id: z.string(),

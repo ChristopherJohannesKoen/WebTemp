@@ -48,7 +48,14 @@ test('lets the owner create, edit, archive, restore, and delete a project', asyn
   await page.getByTestId('project-name').fill('Owner managed project');
   await page.getByTestId('project-description').fill('Created by the owner flow.');
   await page.getByTestId('project-status').selectOption('paused');
-  await page.getByTestId('project-submit').click();
+  await Promise.all([
+    page.waitForResponse(
+      (response) =>
+        response.url().includes('/api/projects') &&
+        response.request().method() === 'POST'
+    ),
+    page.getByTestId('project-submit').click()
+  ]);
 
   await expect(page).not.toHaveURL(/\/app\/projects\/new$/);
   await expect(page.getByRole('heading', { name: 'Owner managed project' })).toBeVisible();

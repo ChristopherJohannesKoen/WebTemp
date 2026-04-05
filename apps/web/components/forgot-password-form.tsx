@@ -4,33 +4,47 @@ import Link from 'next/link';
 import { useState } from 'react';
 import type { ForgotPasswordResponse } from '@packages/shared';
 import { Button, Card, Field, Input } from '@packages/ui';
+import { clientApiRequest, clientSchemas } from '../lib/client-api';
+import { describedByIds, toFieldErrorMap } from '../lib/form-errors';
 import { toApiError } from '../lib/api-error';
-import { clientApiRequest } from '../lib/client-api';
+import { FieldErrorMessage, FormErrorMessage } from './form-feedback';
 
 export function ForgotPasswordForm() {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string>();
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [result, setResult] = useState<ForgotPasswordResponse>();
+
+  async function requestResetLink(formData: FormData) {
+    return clientApiRequest('/api/auth/password/forgot', {
+      method: 'POST',
+      body: JSON.stringify({
+        email: formData.get('email')
+      })
+    }, {
+      schema: clientSchemas.forgotPassword
+    });
+  }
 
   async function handleSubmit(formData: FormData) {
     setPending(true);
     setError(undefined);
+    setFieldErrors({});
 
     try {
-      const response = await clientApiRequest<ForgotPasswordResponse>('/api/auth/password/forgot', {
-        method: 'POST',
-        body: JSON.stringify({
-          email: formData.get('email')
-        })
-      });
+      const response = await requestResetLink(formData);
 
       setResult(response);
     } catch (caughtError) {
-      setError(toApiError(caughtError).message);
+      const apiError = toApiError(caughtError);
+      setError(apiError.message);
+      setFieldErrors(toFieldErrorMap(apiError.errors));
     } finally {
       setPending(false);
     }
   }
+
+  const emailError = fieldErrors.email;
 
   return (
     <Card className="mx-auto max-w-md bg-white/90">
@@ -38,25 +52,36 @@ export function ForgotPasswordForm() {
         <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Recovery flow</p>
         <h1 className="text-3xl font-black text-slate-950">Reset your password</h1>
         <p className="text-sm text-slate-600">
-          In development, the API returns a usable reset link so you can test the full flow locally.
+          When local reset-detail exposure is enabled, the API returns a usable reset link so you
+          can test the full flow without email delivery.
         </p>
       </div>
-      <form action={handleSubmit} className="mt-6 grid gap-4">
+      <form action={handleSubmit} className="mt-6 grid gap-4" data-testid="forgot-password-form">
         <Field label="Email">
-          <Input
-            autoComplete="email"
-            data-testid="forgot-password-email"
-            name="email"
-            placeholder="you@example.com"
-            required
-            type="email"
-          />
+          <>
+            <Input
+              aria-describedby={describedByIds(emailError && 'forgot-password-email-error')}
+              aria-invalid={emailError ? 'true' : 'false'}
+              autoComplete="email"
+              data-testid="forgot-password-email"
+              id="forgot-password-email"
+              name="email"
+              placeholder="you@example.com"
+              required
+              type="email"
+            />
+            <FieldErrorMessage
+              error={emailError}
+              id="forgot-password-email-error"
+              testId="forgot-password-email-error"
+            />
+          </>
         </Field>
-        {error ? (
-          <p className="text-sm text-rose-600" data-testid="forgot-password-error">
-            {error}
-          </p>
-        ) : null}
+        <FormErrorMessage
+          error={error}
+          messageTestId="forgot-password-error"
+          regionTestId="forgot-password-error-region"
+        />
         <Button data-testid="forgot-password-submit" disabled={pending} type="submit">
           {pending ? 'Generating link...' : 'Generate reset link'}
         </Button>

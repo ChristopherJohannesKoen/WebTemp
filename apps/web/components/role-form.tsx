@@ -4,8 +4,8 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import type { Role, UserSummary } from '@packages/shared';
 import { Button, Select } from '@packages/ui';
+import { clientApiRequest, clientSchemas } from '../lib/client-api';
 import { toApiError } from '../lib/api-error';
-import { clientApiRequest } from '../lib/client-api';
 
 export function RoleForm({ user }: { user: UserSummary }) {
   const router = useRouter();
@@ -17,11 +17,13 @@ export function RoleForm({ user }: { user: UserSummary }) {
     setError(undefined);
 
     try {
-      await clientApiRequest<UserSummary>(`/api/admin/users/${user.id}/role`, {
+      await clientApiRequest(`/api/admin/users/${user.id}/role`, {
         method: 'PATCH',
         body: JSON.stringify({
           role: formData.get('role') as Role
         })
+      }, {
+        schema: clientSchemas.user
       });
 
       router.refresh();

@@ -4,7 +4,7 @@ An opinionated full-stack SaaS template for teams that want to start from a hard
 
 ## Stack
 
-- `apps/web`: Next.js 15 App Router, Tailwind, shared UI package, nonce-based CSP, strict browser security headers, and server-side `/api/*` proxying
+- `apps/web`: Next.js 15 App Router, Tailwind, shared UI package, nonce-based CSP with staged report-only rollout support, strict browser security headers, and server-side `/api/*` proxying
 - `apps/api`: NestJS 11, Prisma, Postgres, Swagger, session-cookie auth, CSRF protection, idempotency, RBAC, rate limiting, audit logging
 - `apps/api`: Prometheus-compatible metrics at `/api/metrics` with optional OTLP tracing behind `FEATURE_OBSERVABILITY`
 - `packages/db`: shared Prisma schema, migrations, seed flow
@@ -22,7 +22,9 @@ An opinionated full-stack SaaS template for teams that want to start from a hard
 - optional observability profiles for Prometheus and Grafana
 - real lint, typecheck, unit tests, API integration tests, and Playwright auth/project/session/RBAC coverage
 - markdown lint, internal doc-link validation, and k6 performance assets for auth/session/write-heavy flows
-- browser-boundary hardening with CSP, clickjacking protection, strict cookie forwarding, and route-level forbidden/error states
+- browser-boundary hardening with CSP, clickjacking protection, strict cookie forwarding, route-level forbidden/error states, and role-aware admin navigation
+- runtime-safe web API parsing with shared Zod contracts for JSON responses and explicit non-JSON handling for export/download paths
+- accessible auth forms with polite live error regions and field-level associations
 - CI, Docker image publishing workflow, and CodeQL scanning
 
 ## Quick Start

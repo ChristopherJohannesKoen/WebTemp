@@ -3,8 +3,8 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Button } from '@packages/ui';
+import { clientApiRequest, clientSchemas } from '../lib/client-api';
 import { toApiError } from '../lib/api-error';
-import { clientApiRequest } from '../lib/client-api';
 
 export function LogoutButton() {
   const router = useRouter();
@@ -18,10 +18,11 @@ export function LogoutButton() {
     try {
       await clientApiRequest('/api/auth/logout', {
         method: 'POST'
+      }, {
+        schema: clientSchemas.ok
       });
 
       router.push('/login');
-      router.refresh();
     } catch (caughtError) {
       setError(toApiError(caughtError).message);
     } finally {

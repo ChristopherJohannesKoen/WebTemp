@@ -108,6 +108,24 @@ describe('server-api helpers', () => {
     });
   });
 
+  it('does not swallow non-JSON auth responses as anonymous users', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response('<html>gateway timeout</html>', {
+        headers: { 'content-type': 'text/html' },
+        status: 502
+      })
+    );
+
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { getCurrentUser } = await import('../lib/server-api');
+
+    await expect(getCurrentUser()).rejects.toMatchObject({
+      code: 'invalid_api_response',
+      statusCode: 502
+    });
+  });
+
   it('redirects protected API reads only when the backend returns 401', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       jsonResponse(

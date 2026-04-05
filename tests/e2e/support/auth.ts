@@ -29,7 +29,14 @@ export async function signUp(page: Page, payload: SignupPayload) {
   await page.getByTestId('sign-up-name').fill(payload.name);
   await page.getByTestId('sign-up-email').fill(payload.email);
   await page.getByTestId('sign-up-password').fill(payload.password);
-  await page.getByTestId('sign-up-submit').click();
+  await Promise.all([
+    page.waitForResponse(
+      (candidate) =>
+        candidate.url().includes('/api/auth/signup') &&
+        candidate.request().method() === 'POST'
+    ),
+    page.getByTestId('sign-up-submit').click()
+  ]);
   await expect(page).toHaveURL(/\/app$/);
 }
 

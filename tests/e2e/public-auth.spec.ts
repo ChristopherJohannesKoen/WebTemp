@@ -23,6 +23,12 @@ test('serves hardened security headers on public and protected pages', async ({ 
   expect(landingResponse?.headers()['x-content-type-options']).toBe('nosniff');
   expect(landingResponse?.headers()['content-security-policy']).toContain("frame-ancestors 'none'");
   expect(landingResponse?.headers()['content-security-policy']).toContain("script-src 'self' 'nonce-");
+  expect(landingResponse?.headers()['content-security-policy-report-only']).toContain(
+    "style-src 'self' 'nonce-"
+  );
+  expect(landingResponse?.headers()['content-security-policy-report-only']).not.toContain(
+    "'unsafe-inline'"
+  );
 
   const loginResponse = await page.goto('/login');
 
@@ -83,6 +89,7 @@ test('shows an error for invalid login credentials', async ({ page }) => {
   await page.getByTestId('sign-in-password').fill('WrongPassword123!');
   await page.getByTestId('sign-in-submit').click();
 
+  await expect(page.getByTestId('sign-in-error-region')).toHaveAttribute('aria-live', 'polite');
   await expect(page.getByTestId('sign-in-error')).toContainText('Invalid email or password.');
 });
 

@@ -1,14 +1,24 @@
+import { z } from 'zod';
 import { describe, expect, it } from 'vitest';
-import { ApiRequestError, parseApiResponse, toApiError } from '../lib/api-error';
+import {
+  ApiContractError,
+  ApiRequestError,
+  parseEmptyResponse,
+  parseJsonResponse,
+  parseTextResponse,
+  toApiError
+} from '../lib/api-error';
 
 describe('api error helpers', () => {
-  it('parses successful JSON responses', async () => {
+  it('parses successful JSON responses with a schema', async () => {
     const response = new Response(JSON.stringify({ ok: true }), {
       headers: { 'content-type': 'application/json' },
       status: 200
     });
 
-    await expect(parseApiResponse<{ ok: boolean }>(response)).resolves.toEqual({ ok: true });
+    await expect(
+      parseJsonResponse(response, z.object({ ok: z.boolean() }))
+    ).resolves.toEqual({ ok: true });
   });
 
   it('throws structured API errors for failing JSON responses', async () => {
@@ -25,10 +35,49 @@ describe('api error helpers', () => {
       }
     );
 
-    await expect(parseApiResponse(response)).rejects.toMatchObject({
+    await expect(parseJsonResponse(response)).rejects.toMatchObject({
       code: 'auth_required',
       statusCode: 401
     });
+  });
+
+  it('fails fast when a JSON endpoint returns an unexpected content type', async () => {
+    const response = new Response('<html>bad gateway</html>', {
+      headers: { 'content-type': 'text/html' },
+      status: 503
+    });
+
+    await expect(parseJsonResponse(response)).rejects.toBeInstanceOf(ApiContractError);
+  });
+
+  it('fails fast when a successful JSON payload violates the expected schema', async () => {
+    const response = new Response(JSON.stringify({ ok: 'yes' }), {
+      headers: { 'content-type': 'application/json' },
+      status: 200
+    });
+
+    await expect(
+      parseJsonResponse(response, z.object({ ok: z.boolean() }))
+    ).rejects.toBeInstanceOf(ApiContractError);
+  });
+
+  it('supports explicit text and empty response parsers', async () => {
+    await expect(
+      parseTextResponse(
+        new Response('plain text payload', {
+          headers: { 'content-type': 'text/plain' },
+          status: 200
+        })
+      )
+    ).resolves.toBe('plain text payload');
+
+    await expect(
+      parseEmptyResponse(
+        new Response(null, {
+          status: 204
+        })
+      )
+    ).resolves.toBeUndefined();
   });
 
   it('normalizes unknown thrown values', () => {
