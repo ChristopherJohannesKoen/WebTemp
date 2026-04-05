@@ -109,7 +109,7 @@ async function main() {
   await runCommand('npm run prisma:migrate:deploy --workspace=@packages/db');
   await runCommand('npx tsc -p apps/api/tsconfig.build.json --incremental false');
 
-  const child = spawn('node ./apps/api/dist/main.js', {
+  const child = spawn('node ./apps/api/dist/e2e-main.js', {
     cwd: process.cwd(),
     env: process.env,
     shell: true,

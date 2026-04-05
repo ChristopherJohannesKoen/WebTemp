@@ -19,7 +19,10 @@ export default async function AdminUsersPage({ searchParams }: { searchParams: S
 
   const resolvedSearchParams = await searchParams;
   const page = getSingleValue(resolvedSearchParams.page) ?? '1';
-  const users = await getUsers(`page=${page}&pageSize=20`);
+  const users = await getUsers({
+    page: Number(page),
+    pageSize: 20
+  });
 
   return (
     <div className="grid gap-6">

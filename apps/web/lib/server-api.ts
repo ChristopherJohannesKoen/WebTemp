@@ -1,115 +1,67 @@
-import { cookies } from 'next/headers';
-import { unstable_noStore as noStore } from 'next/cache';
-import { redirect } from 'next/navigation';
+import { apiContract } from '@packages/contracts';
 import type {
   AuthResponse,
   Project,
+  ProjectListQuery,
   ProjectListResponse,
   SessionListResponse,
+  UserListQuery,
   UserListResponse,
   UserSummary
 } from '@packages/shared';
-import {
-  AuthResponseSchema,
-  ProjectListResponseSchema,
-  ProjectSchema,
-  SessionListResponseSchema,
-  UserListResponseSchema,
-  UserSummarySchema
-} from '@packages/shared';
-import type { ZodType } from 'zod';
-import { ApiRequestError, parseExpectedResponse } from './api-error';
+import { initClient, tsRestFetchApi } from '@ts-rest/core';
+import { cookies } from 'next/headers';
+import { unstable_noStore as noStore } from 'next/cache';
+import { redirect } from 'next/navigation';
+import { ApiRequestError, toApiError, unwrapContractResponse } from './api-error';
 
 const apiOrigin = process.env.API_ORIGIN ?? 'http://localhost:4000';
 const sessionCookieName = process.env.SESSION_COOKIE_NAME ?? 'ultimate_template_session';
 
-function getFetchOptions(path: string, init?: RequestInit) {
-  if (process.env.NODE_ENV === 'test' || process.env.TEMPLATE_E2E === 'true') {
-    return { cache: 'no-store' as const };
-  }
-
-  const method = init?.method?.toUpperCase() ?? 'GET';
-
-  if (method !== 'GET') {
-    return { cache: 'no-store' as const };
-  }
-
-  if (
-    path.startsWith('/auth/') ||
-    path.startsWith('/users/') ||
-    path.startsWith('/admin/') ||
-    path.startsWith('/projects')
-  ) {
-    return { cache: 'no-store' as const };
-  }
-
-  return {
-    next: {
-      revalidate: 30
-    }
-  };
-}
-
-async function serverApiRequest<T>(
-  path: string,
-  init?: RequestInit,
-  options?: {
-    responseType?: 'json' | 'text' | 'empty' | 'blob';
-    schema?: ZodType<T>;
-  }
-) {
-  const cookieStore = await cookies();
-  const headers = new Headers(init?.headers);
-  const fetchOptions = getFetchOptions(path, init);
-
-  if (!headers.has('Content-Type') && init?.body) {
-    headers.set('Content-Type', 'application/json');
-  }
-
-  if (!headers.has('cookie')) {
+const serverClient = initClient(apiContract, {
+  baseUrl: `${apiOrigin}/api`,
+  validateResponse: true,
+  throwOnUnknownStatus: true,
+  api: async (args) => {
+    const headers = { ...args.headers };
+    const cookieStore = await cookies();
     const sessionCookie = cookieStore.get(sessionCookieName);
 
-    if (sessionCookie) {
-      headers.set('cookie', `${sessionCookie.name}=${sessionCookie.value}`);
+    if (sessionCookie && !headers.cookie) {
+      headers.cookie = `${sessionCookie.name}=${sessionCookie.value}`;
     }
+
+    return tsRestFetchApi({
+      ...args,
+      headers,
+      fetchOptions: {
+        ...args.fetchOptions,
+        cache: 'no-store'
+      }
+    });
   }
+});
 
-  if ('cache' in fetchOptions && fetchOptions.cache === 'no-store') {
-    noStore();
+async function executeServerRequest<T>(
+  operation: () => Promise<{ status: number; body: unknown; headers: Headers }>,
+  expectedStatuses: readonly number[]
+) {
+  noStore();
+
+  try {
+    const response = await operation();
+    return unwrapContractResponse<T>(response, expectedStatuses);
+  } catch (error) {
+    throw toApiError(error);
   }
-
-  if (process.env.TEMPLATE_E2E === 'true' && path.startsWith('/projects/') && path.includes('forceError=upstream')) {
-    throw new ApiRequestError(
-      'The upstream API is unavailable.',
-      503,
-      [],
-      undefined,
-      'upstream_error'
-    );
-  }
-
-  const response = await fetch(`${apiOrigin}/api${path}`, {
-    ...init,
-    ...fetchOptions,
-    headers
-  });
-
-  return parseExpectedResponse<T>(response, {
-    responseType: options?.responseType,
-    schema: options?.schema
-  });
 }
 
-async function protectedServerApiRequest<T>(
-  path: string,
-  init?: RequestInit,
-  options?: {
-    responseType?: 'json' | 'text' | 'empty' | 'blob';
-    schema?: ZodType<T>;
-  }
+async function protectedServerRequest<T>(
+  operation: () => Promise<{ status: number; body: unknown; headers: Headers }>,
+  expectedStatuses: readonly number[]
 ) {
   try {
-    return await serverApiRequest<T>(path, init, options);
+    return await executeServerRequest<T>(operation, expectedStatuses);
   } catch (error) {
     if (error instanceof ApiRequestError && error.statusCode === 401) {
       redirect('/login');
@@ -121,9 +73,7 @@ async function protectedServerApiRequest<T>(
 
 export async function getCurrentUser() {
   try {
-    const response = await serverApiRequest<AuthResponse>('/auth/me', undefined, {
-      schema: AuthResponseSchema
-    });
+    const response = await executeServerRequest<AuthResponse>(() => serverClient.auth.me(), [200]);
     return response.user;
   } catch (error) {
     if (error instanceof ApiRequestError && error.statusCode === 401) {
@@ -144,36 +94,34 @@ export async function requireCurrentUser() {
   return currentUser;
 }
 
-export async function getProjects(query = '') {
-  return protectedServerApiRequest<ProjectListResponse>(`/projects${query ? `?${query}` : ''}`, undefined, {
-    schema: ProjectListResponseSchema
-  });
-}
-
-export async function getProject(projectId: string, query = '') {
-  return protectedServerApiRequest<Project>(
-    `/projects/${projectId}${query ? `?${query}` : ''}`,
-    undefined,
-    {
-      schema: ProjectSchema
-    }
+export function getProjects(query: Partial<ProjectListQuery> = {}) {
+  return protectedServerRequest<ProjectListResponse>(
+    () => serverClient.projects.list({ query }),
+    [200]
   );
 }
 
-export async function getUsers(query = '') {
-  return protectedServerApiRequest<UserListResponse>(`/admin/users${query ? `?${query}` : ''}`, undefined, {
-    schema: UserListResponseSchema
-  });
+export function getProject(projectId: string) {
+  return protectedServerRequest<Project>(
+    () =>
+      serverClient.projects.get({
+        params: { id: projectId }
+      }),
+    [200]
+  );
 }
 
-export async function getUserProfile() {
-  return protectedServerApiRequest<UserSummary>('/users/me', undefined, {
-    schema: UserSummarySchema
-  });
+export function getUsers(query: Partial<UserListQuery> = {}) {
+  return protectedServerRequest<UserListResponse>(
+    () => serverClient.admin.listUsers({ query }),
+    [200]
+  );
 }
 
-export async function getSessions() {
-  return protectedServerApiRequest<SessionListResponse>('/auth/sessions', undefined, {
-    schema: SessionListResponseSchema
-  });
+export function getUserProfile() {
+  return protectedServerRequest<UserSummary>(() => serverClient.users.me(), [200]);
+}
+
+export function getSessions() {
+  return protectedServerRequest<SessionListResponse>(() => serverClient.auth.listSessions(), [200]);
 }

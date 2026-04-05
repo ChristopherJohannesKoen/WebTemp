@@ -1,42 +1,55 @@
 'use client';
 
+import { apiContract } from '@packages/contracts';
 import type {
+  AuthPayload,
   AuthResponse,
-  CsrfResponse,
+  ForgotPasswordPayload,
   ForgotPasswordResponse,
   OkResponse,
   Project,
+  ProjectUpsertPayload,
+  ResetPasswordPayload,
   RevokeSessionResponse,
+  Role,
+  UpdateProfilePayload,
   UserSummary
 } from '@packages/shared';
-import {
-  AuthResponseSchema,
-  CsrfResponseSchema,
-  ForgotPasswordResponseSchema,
-  OkResponseSchema,
-  ProjectSchema,
-  RevokeSessionResponseSchema,
-  UserSummarySchema
-} from '@packages/shared';
-import type { ZodType } from 'zod';
-import { ApiRequestError, parseExpectedResponse } from './api-error';
+import { ApiErrorSchema } from '@packages/shared';
+import { initClient } from '@ts-rest/core';
+import { toApiError, unwrapContractResponse } from './api-error';
 
 const unsafeMethods = new Set(['POST', 'PATCH', 'PUT', 'DELETE']);
-const csrfExemptPaths = new Set([
-  '/api/auth/login',
-  '/api/auth/signup',
-  '/api/auth/password/forgot',
-  '/api/auth/password/reset'
-]);
+const browserClient = initClient(apiContract, {
+  baseUrl: '/api',
+  credentials: 'same-origin',
+  validateResponse: true,
+  throwOnUnknownStatus: true
+});
 
 let csrfTokenCache: string | undefined;
 let csrfTokenPromise: Promise<string> | undefined;
-
-type ClientApiOptions<T> = {
-  idempotent?: boolean;
-  responseType?: 'json' | 'text' | 'empty' | 'blob';
-  schema?: ZodType<T>;
+type MutationHeaders = {
+  'idempotency-key'?: string;
+  'x-csrf-token'?: string;
 };
+
+function clearCsrfToken() {
+  csrfTokenCache = undefined;
+  csrfTokenPromise = undefined;
+}
+
+function createIdempotencyKey() {
+  return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+async function withApiErrors<T>(operation: () => Promise<T>) {
+  try {
+    return await operation();
+  } catch (error) {
+    throw toApiError(error);
+  }
+}
 
 async function fetchCsrfToken(forceRefresh = false) {
   if (!forceRefresh && csrfTokenCache) {
@@ -44,104 +57,240 @@ async function fetchCsrfToken(forceRefresh = false) {
   }
 
   if (!csrfTokenPromise || forceRefresh) {
-    csrfTokenPromise = fetch('/api/auth/csrf', {
-      credentials: 'same-origin'
-    })
-      .then((response) =>
-        parseExpectedResponse<CsrfResponse>(response, {
-          schema: CsrfResponseSchema
-        })
-      )
-      .then((payload) => {
-        csrfTokenCache = payload.csrfToken;
-        return payload.csrfToken;
-      })
-      .finally(() => {
-        csrfTokenPromise = undefined;
-      });
+    csrfTokenPromise = withApiErrors(async () => {
+      const response = await browserClient.auth.csrf();
+      const payload = unwrapContractResponse<{ csrfToken: string }>(response, [200]);
+      csrfTokenCache = payload.csrfToken;
+      return payload.csrfToken;
+    }).finally(() => {
+      csrfTokenPromise = undefined;
+    });
   }
 
   return csrfTokenPromise;
 }
 
-function clearCsrfToken() {
-  csrfTokenCache = undefined;
-  csrfTokenPromise = undefined;
-}
+async function executeMutation<T>({
+  call,
+  expectedStatuses,
+  idempotent = false,
+  method,
+  requireCsrf,
+  clearCsrfAfter = false
+}: {
+  call: (headers: MutationHeaders) => Promise<{ status: number; body: unknown; headers: Headers }>;
+  expectedStatuses: readonly number[];
+  idempotent?: boolean;
+  method: string;
+  requireCsrf?: boolean;
+  clearCsrfAfter?: boolean;
+}) {
+  return withApiErrors(async () => {
+    const shouldSendCsrf = requireCsrf ?? unsafeMethods.has(method);
+    const idempotencyKey = idempotent ? createIdempotencyKey() : undefined;
 
-function shouldSendCsrf(path: string, method: string) {
-  return unsafeMethods.has(method.toUpperCase()) && !csrfExemptPaths.has(path);
-}
+    const run = async (forceCsrfRefresh = false) => {
+      const headers: MutationHeaders = {};
 
-function shouldRefreshCsrf(path: string, method: string) {
-  return unsafeMethods.has(method.toUpperCase()) && path.startsWith('/api/auth/');
-}
+      if (idempotencyKey) {
+        headers['idempotency-key'] = idempotencyKey;
+      }
 
-function createIdempotencyKey() {
-  return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-}
+      if (shouldSendCsrf) {
+        headers['x-csrf-token'] = await fetchCsrfToken(forceCsrfRefresh);
+      }
 
-export async function clientApiRequest<T>(
-  path: string,
-  init?: RequestInit,
-  options?: ClientApiOptions<T>
-) {
-  const method = init?.method?.toUpperCase() ?? 'GET';
+      return call(headers);
+    };
 
-  async function runRequest(forceCsrfRefresh = false) {
-    const headers = new Headers(init?.headers);
-
-    if (!headers.has('Content-Type') && init?.body) {
-      headers.set('Content-Type', 'application/json');
-    }
-
-    if (options?.idempotent && !headers.has('Idempotency-Key')) {
-      headers.set('Idempotency-Key', createIdempotencyKey());
-    }
-
-    if (shouldSendCsrf(path, method)) {
-      headers.set('X-CSRF-Token', await fetchCsrfToken(forceCsrfRefresh));
-    }
-
-    const response = await fetch(path, {
-      ...init,
-      credentials: 'same-origin',
-      headers
-    });
-
-    return parseExpectedResponse<T>(response, {
-      responseType: options?.responseType,
-      schema: options?.schema
-    });
-  }
-
-  try {
-    const payload = await runRequest(false);
+    let response = await run(false);
+    const parsedError = ApiErrorSchema.safeParse(response.body);
 
     if (
-      path === '/api/auth/logout' ||
-      path === '/api/auth/logout-all' ||
-      shouldRefreshCsrf(path, method)
+      shouldSendCsrf &&
+      response.status === 403 &&
+      parsedError.success &&
+      parsedError.data.code === 'csrf_invalid'
     ) {
+      clearCsrfToken();
+      response = await run(true);
+    }
+
+    const payload = unwrapContractResponse<T>(response, expectedStatuses);
+
+    if (clearCsrfAfter) {
       clearCsrfToken();
     }
 
     return payload;
-  } catch (error) {
-    if (shouldSendCsrf(path, method) && error instanceof ApiRequestError && error.code === 'csrf_invalid') {
-      clearCsrfToken();
-      return runRequest(true);
-    }
-
-    throw error;
-  }
+  });
 }
 
-export const clientSchemas = {
-  auth: AuthResponseSchema as ZodType<AuthResponse>,
-  forgotPassword: ForgotPasswordResponseSchema as ZodType<ForgotPasswordResponse>,
-  ok: OkResponseSchema as ZodType<OkResponse>,
-  project: ProjectSchema as ZodType<Project>,
-  revokeSession: RevokeSessionResponseSchema as ZodType<RevokeSessionResponse>,
-  user: UserSummarySchema as ZodType<UserSummary>
-};
+export function signIn(body: AuthPayload) {
+  return executeMutation<AuthResponse>({
+    method: 'POST',
+    requireCsrf: false,
+    clearCsrfAfter: true,
+    expectedStatuses: [200],
+    call: () => browserClient.auth.login({ body })
+  });
+}
+
+export function signUp(body: { name: string; email: string; password: string }) {
+  return executeMutation<AuthResponse>({
+    method: 'POST',
+    requireCsrf: false,
+    clearCsrfAfter: true,
+    expectedStatuses: [201],
+    idempotent: true,
+    call: (headers) =>
+      browserClient.auth.signup({
+        body,
+        headers: {
+          'idempotency-key': headers['idempotency-key']!
+        }
+      })
+  });
+}
+
+export function requestPasswordReset(body: ForgotPasswordPayload) {
+  return executeMutation<ForgotPasswordResponse>({
+    method: 'POST',
+    requireCsrf: false,
+    expectedStatuses: [200],
+    call: () => browserClient.auth.forgotPassword({ body })
+  });
+}
+
+export function resetPassword(body: ResetPasswordPayload) {
+  return executeMutation<AuthResponse>({
+    method: 'POST',
+    requireCsrf: false,
+    clearCsrfAfter: true,
+    expectedStatuses: [200],
+    idempotent: true,
+    call: (headers) =>
+      browserClient.auth.resetPassword({
+        body,
+        headers: {
+          'idempotency-key': headers['idempotency-key']!
+        }
+      })
+  });
+}
+
+export function logout() {
+  return executeMutation<OkResponse>({
+    method: 'POST',
+    clearCsrfAfter: true,
+    expectedStatuses: [200],
+    call: (headers) =>
+      browserClient.auth.logout({
+        headers: {
+          'x-csrf-token': headers['x-csrf-token']!
+        }
+      })
+  });
+}
+
+export function logoutAll() {
+  return executeMutation<OkResponse>({
+    method: 'POST',
+    clearCsrfAfter: true,
+    expectedStatuses: [200],
+    call: (headers) =>
+      browserClient.auth.logoutAll({
+        headers: {
+          'x-csrf-token': headers['x-csrf-token']!
+        }
+      })
+  });
+}
+
+export function revokeSession(sessionId: string) {
+  return executeMutation<RevokeSessionResponse>({
+    method: 'DELETE',
+    expectedStatuses: [200],
+    call: (headers) =>
+      browserClient.auth.revokeSession({
+        params: { sessionId },
+        headers: {
+          'x-csrf-token': headers['x-csrf-token']!
+        }
+      })
+  });
+}
+
+export function updateProfile(body: UpdateProfilePayload) {
+  return executeMutation<UserSummary>({
+    method: 'PATCH',
+    expectedStatuses: [200],
+    call: (headers) =>
+      browserClient.users.updateMe({
+        body,
+        headers: {
+          'x-csrf-token': headers['x-csrf-token']!
+        }
+      })
+  });
+}
+
+export function createProject(body: ProjectUpsertPayload) {
+  return executeMutation<Project>({
+    method: 'POST',
+    expectedStatuses: [201],
+    idempotent: true,
+    call: (headers) =>
+      browserClient.projects.create({
+        body,
+        headers: {
+          'idempotency-key': headers['idempotency-key']!,
+          'x-csrf-token': headers['x-csrf-token']!
+        }
+      })
+  });
+}
+
+export function updateProject(projectId: string, body: Partial<ProjectUpsertPayload>) {
+  return executeMutation<Project>({
+    method: 'PATCH',
+    expectedStatuses: [200],
+    call: (headers) =>
+      browserClient.projects.update({
+        params: { id: projectId },
+        body,
+        headers: {
+          'x-csrf-token': headers['x-csrf-token']!
+        }
+      })
+  });
+}
+
+export function deleteProject(projectId: string) {
+  return executeMutation<OkResponse>({
+    method: 'DELETE',
+    expectedStatuses: [200],
+    call: (headers) =>
+      browserClient.projects.delete({
+        params: { id: projectId },
+        headers: {
+          'x-csrf-token': headers['x-csrf-token']!
+        }
+      })
+  });
+}
+
+export function updateUserRole(userId: string, role: Role) {
+  return executeMutation<UserSummary>({
+    method: 'PATCH',
+    expectedStatuses: [200],
+    call: (headers) =>
+      browserClient.admin.updateUserRole({
+        params: { id: userId },
+        body: { role },
+        headers: {
+          'x-csrf-token': headers['x-csrf-token']!
+        }
+      })
+  });
+}

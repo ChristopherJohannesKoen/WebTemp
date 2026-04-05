@@ -1,10 +1,12 @@
 import { readFile } from 'node:fs/promises';
 import { expect, test } from '@playwright/test';
 import { addProjectsForPagination, resetDatabase } from './support/e2e-db';
+import { clearFailpoints, setFailpoint } from './support/failpoints';
 import { seededUsers, signIn } from './support/auth';
 
 test.beforeEach(async () => {
   await resetDatabase('baseline');
+  await clearFailpoints();
 });
 
 test('shows seeded projects and filter controls', async ({ page }) => {
@@ -223,7 +225,25 @@ test('renders the protected-route error boundary for upstream project failures',
     throw new Error('Could not resolve the seeded project detail URL.');
   }
 
-  await page.goto(`${projectPath}?forceError=upstream`);
+  const projectId = projectPath.split('/').at(-1);
+
+  if (!projectId) {
+    throw new Error('Could not resolve the seeded project identifier.');
+  }
+
+  await setFailpoint({
+    method: 'GET',
+    path: `/api/projects/${projectId}`,
+    statusCode: 503,
+    body: {
+      statusCode: 503,
+      message: 'The upstream API is unavailable.',
+      code: 'upstream_error',
+      errors: []
+    }
+  });
+
+  await page.goto(projectPath);
 
   await expect(page.getByTestId('protected-route-error')).toBeVisible();
   await expect(page.getByTestId('protected-route-not-found')).toHaveCount(0);

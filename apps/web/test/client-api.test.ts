@@ -7,6 +7,25 @@ function jsonResponse(body: unknown, status = 200) {
   });
 }
 
+function projectResponse(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'project_1',
+    name: 'Updated project',
+    description: 'Updated description',
+    status: 'active',
+    isArchived: false,
+    creator: {
+      id: 'user_1',
+      name: 'Template Owner',
+      email: 'owner@example.com',
+      role: 'owner'
+    },
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    ...overrides
+  };
+}
+
 describe('clientApiRequest', () => {
   beforeEach(() => {
     vi.resetModules();
@@ -35,18 +54,20 @@ describe('clientApiRequest', () => {
         )
       )
       .mockResolvedValueOnce(jsonResponse({ csrfToken: secondCsrfToken }))
-      .mockResolvedValueOnce(jsonResponse({ ok: true }));
+      .mockResolvedValueOnce(jsonResponse(projectResponse()));
 
     vi.stubGlobal('fetch', fetchMock);
 
-    const { clientApiRequest } = await import('../lib/client-api');
+    const { updateProject } = await import('../lib/client-api');
 
     await expect(
-      clientApiRequest<{ ok: boolean }>('/api/projects/project_1', {
-        method: 'PATCH',
-        body: JSON.stringify({ name: 'Updated project' })
+      updateProject('project_1', {
+        name: 'Updated project'
       })
-    ).resolves.toEqual({ ok: true });
+    ).resolves.toMatchObject({
+      id: 'project_1',
+      name: 'Updated project'
+    });
 
     expect(fetchMock).toHaveBeenCalledTimes(4);
     expect(new Headers(fetchMock.mock.calls[1]?.[1]?.headers).get('X-CSRF-Token')).toBe(
@@ -77,12 +98,11 @@ describe('clientApiRequest', () => {
 
     vi.stubGlobal('fetch', fetchMock);
 
-    const { clientApiRequest } = await import('../lib/client-api');
+    const { updateProject } = await import('../lib/client-api');
 
     await expect(
-      clientApiRequest('/api/projects/project_1', {
-        method: 'PATCH',
-        body: JSON.stringify({ isArchived: true })
+      updateProject('project_1', {
+        isArchived: true
       })
     ).rejects.toMatchObject({
       code: 'forbidden',

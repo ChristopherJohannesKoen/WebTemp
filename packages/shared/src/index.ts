@@ -108,6 +108,21 @@ export const UpdateProfilePayloadSchema = z.object({
 });
 export type UpdateProfilePayload = z.infer<typeof UpdateProfilePayloadSchema>;
 
+export const ProjectIdParamsSchema = z.object({
+  id: z.string()
+});
+export type ProjectIdParams = z.infer<typeof ProjectIdParamsSchema>;
+
+export const SessionIdParamsSchema = z.object({
+  sessionId: z.string()
+});
+export type SessionIdParams = z.infer<typeof SessionIdParamsSchema>;
+
+export const UserIdParamsSchema = z.object({
+  id: z.string()
+});
+export type UserIdParams = z.infer<typeof UserIdParamsSchema>;
+
 export const UserSummarySchema = SessionUserSchema.extend({
   createdAt: z.string(),
   updatedAt: z.string()
@@ -194,3 +209,9 @@ export type ProjectListResponse = z.infer<typeof ProjectListResponseSchema>;
 
 export const UserListResponseSchema = PaginatedListSchema(UserSummarySchema);
 export type UserListResponse = z.infer<typeof UserListResponseSchema>;
+
+export const UserListQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20)
+});
+export type UserListQuery = z.infer<typeof UserListQuerySchema>;

@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import type { UserSummary } from '@packages/shared';
 import { Button, Field, Input } from '@packages/ui';
-import { clientApiRequest, clientSchemas } from '../lib/client-api';
+import { updateProfile } from '../lib/client-api';
 import { toApiError } from '../lib/api-error';
 
 export function ProfileForm({ user }: { user: UserSummary }) {
@@ -17,13 +17,8 @@ export function ProfileForm({ user }: { user: UserSummary }) {
     setError(undefined);
 
     try {
-      await clientApiRequest('/api/users/me', {
-        method: 'PATCH',
-        body: JSON.stringify({
-          name: formData.get('name')
-        })
-      }, {
-        schema: clientSchemas.user
+      await updateProfile({
+        name: String(formData.get('name') ?? '')
       });
 
       router.refresh();

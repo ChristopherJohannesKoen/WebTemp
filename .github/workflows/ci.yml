@@ -63,5 +63,8 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Verify clean worktree after build
+        run: git diff --exit-code
+
       - name: Browser smoke
         run: npm run test:e2e

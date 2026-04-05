@@ -9,7 +9,7 @@ const nextConfig: NextConfig = {
     authInterrupts: true,
     externalDir: true
   },
-  transpilePackages: ['@packages/shared', '@packages/ui'],
+  transpilePackages: ['@packages/contracts', '@packages/shared', '@packages/ui'],
   async rewrites() {
     return [
       {

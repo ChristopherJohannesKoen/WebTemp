@@ -14,25 +14,28 @@ function getSingleValue(value: string | string[] | undefined) {
 export default async function ProjectsPage({ searchParams }: { searchParams: SearchParams }) {
   const resolvedSearchParams = await searchParams;
   const search = getSingleValue(resolvedSearchParams.search) ?? '';
-  const status = getSingleValue(resolvedSearchParams.status) ?? '';
+  const statusValue = getSingleValue(resolvedSearchParams.status);
+  const status =
+    statusValue === 'active' || statusValue === 'paused' || statusValue === 'completed'
+      ? statusValue
+      : '';
   const includeArchived = getSingleValue(resolvedSearchParams.includeArchived) === 'true';
   const cursor = getSingleValue(resolvedSearchParams.cursor) ?? '';
   const trail = getSingleValue(resolvedSearchParams.trail) ?? '';
   const trailEntries = trail ? trail.split(',').filter(Boolean) : [];
-
-  const queryParams = new URLSearchParams();
-  if (search) queryParams.set('search', search);
-  if (status) queryParams.set('status', status);
-  if (includeArchived) queryParams.set('includeArchived', 'true');
-  if (cursor) queryParams.set('cursor', cursor);
-  queryParams.set('limit', '12');
 
   const filterParams = new URLSearchParams();
   if (search) filterParams.set('search', search);
   if (status) filterParams.set('status', status);
   if (includeArchived) filterParams.set('includeArchived', 'true');
 
-  const projects = await getProjects(queryParams.toString());
+  const projects = await getProjects({
+    cursor: cursor || undefined,
+    includeArchived,
+    limit: 12,
+    search: search || undefined,
+    status: status || undefined
+  });
   const nextTrailEntries = [...trailEntries, cursor || 'root'];
   const previousCursor = trailEntries.at(-1);
   const previousTrail = trailEntries.slice(0, -1);

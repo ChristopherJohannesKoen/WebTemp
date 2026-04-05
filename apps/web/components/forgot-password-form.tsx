@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import type { ForgotPasswordResponse } from '@packages/shared';
 import { Button, Card, Field, Input } from '@packages/ui';
-import { clientApiRequest, clientSchemas } from '../lib/client-api';
+import { requestPasswordReset } from '../lib/client-api';
 import { describedByIds, toFieldErrorMap } from '../lib/form-errors';
 import { toApiError } from '../lib/api-error';
 import { FieldErrorMessage, FormErrorMessage } from './form-feedback';
@@ -16,13 +16,8 @@ export function ForgotPasswordForm() {
   const [result, setResult] = useState<ForgotPasswordResponse>();
 
   async function requestResetLink(formData: FormData) {
-    return clientApiRequest('/api/auth/password/forgot', {
-      method: 'POST',
-      body: JSON.stringify({
-        email: formData.get('email')
-      })
-    }, {
-      schema: clientSchemas.forgotPassword
+    return requestPasswordReset({
+      email: String(formData.get('email') ?? '')
     });
   }
 

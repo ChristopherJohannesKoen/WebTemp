@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import type { Project } from '@packages/shared';
 import { Button } from '@packages/ui';
-import { clientApiRequest, clientSchemas } from '../lib/client-api';
+import { deleteProject, updateProject } from '../lib/client-api';
 import { toApiError } from '../lib/api-error';
 
 export function ProjectActions({
@@ -23,13 +23,8 @@ export function ProjectActions({
     setError(undefined);
 
     try {
-      const updatedProject = await clientApiRequest(`/api/projects/${project.id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({
-          isArchived: !project.isArchived
-        })
-      }, {
-        schema: clientSchemas.project
+      const updatedProject = await updateProject(project.id, {
+        isArchived: !project.isArchived
       });
 
       onChanged?.(updatedProject);
@@ -52,11 +47,7 @@ export function ProjectActions({
     setError(undefined);
 
     try {
-      await clientApiRequest(`/api/projects/${project.id}`, {
-        method: 'DELETE'
-      }, {
-        schema: clientSchemas.ok
-      });
+      await deleteProject(project.id);
 
       router.push('/app/projects');
     } catch (caughtError) {

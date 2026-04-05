@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import type { Project, ProjectUpsertPayload } from '@packages/shared';
 import { Button, Field, Input, Select, Textarea } from '@packages/ui';
-import { clientApiRequest, clientSchemas } from '../lib/client-api';
+import { createProject, updateProject } from '../lib/client-api';
 import { toApiError } from '../lib/api-error';
 
 type ProjectFormProps = {
@@ -30,17 +30,9 @@ export function ProjectForm({ mode, onSaved, project }: ProjectFormProps) {
     };
 
     try {
-      const response = await clientApiRequest(
-        project ? `/api/projects/${project.id}` : '/api/projects',
-        {
-          method: project ? 'PATCH' : 'POST',
-          body: JSON.stringify(payload)
-        },
-        {
-          idempotent: !project,
-          schema: clientSchemas.project
-        }
-      );
+      const response = project
+        ? await updateProject(project.id, payload)
+        : await createProject(payload);
 
       if (project) {
         onSaved?.(response);

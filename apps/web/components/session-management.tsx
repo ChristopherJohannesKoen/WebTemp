@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import type { SessionSummary } from '@packages/shared';
 import { Badge, Button } from '@packages/ui';
-import { clientApiRequest, clientSchemas } from '../lib/client-api';
+import { logout, logoutAll, revokeSession } from '../lib/client-api';
 import { toApiError } from '../lib/api-error';
 
 function formatTimestamp(value: string) {
@@ -25,11 +25,7 @@ export function SessionManagement({ sessions }: { sessions: SessionSummary[] }) 
     setError(undefined);
 
     try {
-      await clientApiRequest('/api/auth/logout', {
-        method: 'POST'
-      }, {
-        schema: clientSchemas.ok
-      });
+      await logout();
 
       router.push('/login');
     } catch (caughtError) {
@@ -44,15 +40,7 @@ export function SessionManagement({ sessions }: { sessions: SessionSummary[] }) 
     setError(undefined);
 
     try {
-      const response = await clientApiRequest(
-        `/api/auth/sessions/${sessionId}`,
-        {
-          method: 'DELETE'
-        },
-        {
-          schema: clientSchemas.revokeSession
-        }
-      );
+      const response = await revokeSession(sessionId);
 
       if (response.revokedCurrent) {
         router.push('/login');
@@ -71,11 +59,7 @@ export function SessionManagement({ sessions }: { sessions: SessionSummary[] }) 
     setError(undefined);
 
     try {
-      await clientApiRequest('/api/auth/logout-all', {
-        method: 'POST'
-      }, {
-        schema: clientSchemas.ok
-      });
+      await logoutAll();
 
       router.push('/login');
     } catch (caughtError) {

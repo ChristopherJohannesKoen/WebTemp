@@ -1,83 +1,91 @@
+import { apiContract } from '@packages/contracts';
 import { z } from 'zod';
+import { ResponseValidationError, UnknownStatusError } from '@ts-rest/core';
 import { describe, expect, it } from 'vitest';
 import {
   ApiContractError,
   ApiRequestError,
-  parseEmptyResponse,
-  parseJsonResponse,
-  parseTextResponse,
-  toApiError
+  toApiError,
+  unwrapContractResponse
 } from '../lib/api-error';
 
 describe('api error helpers', () => {
-  it('parses successful JSON responses with a schema', async () => {
-    const response = new Response(JSON.stringify({ ok: true }), {
-      headers: { 'content-type': 'application/json' },
-      status: 200
-    });
-
-    await expect(
-      parseJsonResponse(response, z.object({ ok: z.boolean() }))
-    ).resolves.toEqual({ ok: true });
+  it('unwraps successful contract responses', () => {
+    expect(
+      unwrapContractResponse<{ ok: boolean }>(
+        {
+          status: 200,
+          body: { ok: true },
+          headers: new Headers()
+        },
+        [200]
+      )
+    ).toEqual({ ok: true });
   });
 
-  it('throws structured API errors for failing JSON responses', async () => {
-    const response = new Response(
-      JSON.stringify({
-        statusCode: 401,
-        message: 'Unauthorized',
-        code: 'auth_required',
-        errors: []
-      }),
-      {
-        headers: { 'content-type': 'application/json' },
-        status: 401
-      }
+  it('throws structured API errors for failing contract responses', () => {
+    expect(() =>
+      unwrapContractResponse(
+        {
+          status: 401,
+          body: {
+            statusCode: 401,
+            message: 'Unauthorized',
+            code: 'auth_required',
+            errors: []
+          },
+          headers: new Headers()
+        },
+        [200]
+      )
+    ).toThrowError(ApiRequestError);
+  });
+
+  it('fails fast when an error payload does not match the contract', () => {
+    expect(() =>
+      unwrapContractResponse(
+        {
+          status: 503,
+          body: '<html>bad gateway</html>',
+          headers: new Headers()
+        },
+        [200]
+      )
+    ).toThrowError(ApiContractError);
+  });
+
+  it('maps ts-rest response validation failures into contract errors', () => {
+    const zodError = z.object({ ok: z.boolean() }).safeParse({ ok: 'yes' });
+
+    if (zodError.success) {
+      throw new Error('Expected schema parsing to fail for the invalid payload.');
+    }
+
+    const error = toApiError(new ResponseValidationError(apiContract.auth.me, zodError.error));
+
+    expect(error).toBeInstanceOf(ApiContractError);
+    expect(error.code).toBe('invalid_api_response');
+  });
+
+  it('maps unknown status errors with structured payloads into API errors', () => {
+    const error = toApiError(
+      new UnknownStatusError(
+        {
+          status: 418,
+          body: {
+            statusCode: 418,
+            message: 'Teapot',
+            code: 'teapot',
+            errors: []
+          }
+        },
+        ['200']
+      )
     );
 
-    await expect(parseJsonResponse(response)).rejects.toMatchObject({
-      code: 'auth_required',
-      statusCode: 401
-    });
-  });
-
-  it('fails fast when a JSON endpoint returns an unexpected content type', async () => {
-    const response = new Response('<html>bad gateway</html>', {
-      headers: { 'content-type': 'text/html' },
-      status: 503
-    });
-
-    await expect(parseJsonResponse(response)).rejects.toBeInstanceOf(ApiContractError);
-  });
-
-  it('fails fast when a successful JSON payload violates the expected schema', async () => {
-    const response = new Response(JSON.stringify({ ok: 'yes' }), {
-      headers: { 'content-type': 'application/json' },
-      status: 200
-    });
-
-    await expect(
-      parseJsonResponse(response, z.object({ ok: z.boolean() }))
-    ).rejects.toBeInstanceOf(ApiContractError);
-  });
-
-  it('supports explicit text and empty response parsers', async () => {
-    await expect(
-      parseTextResponse(
-        new Response('plain text payload', {
-          headers: { 'content-type': 'text/plain' },
-          status: 200
-        })
-      )
-    ).resolves.toBe('plain text payload');
-
-    await expect(
-      parseEmptyResponse(
-        new Response(null, {
-          status: 204
-        })
-      )
-    ).resolves.toBeUndefined();
+    expect(error).toBeInstanceOf(ApiRequestError);
+    expect(error.code).toBe('teapot');
+    expect(error.statusCode).toBe(418);
   });
 
   it('normalizes unknown thrown values', () => {

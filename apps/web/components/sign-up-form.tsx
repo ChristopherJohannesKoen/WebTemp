@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Button, Card, Field, Input } from '@packages/ui';
-import { clientApiRequest, clientSchemas } from '../lib/client-api';
+import { signUp } from '../lib/client-api';
 import { describedByIds, toFieldErrorMap } from '../lib/form-errors';
 import { toApiError } from '../lib/api-error';
 import { FieldErrorMessage, FormErrorMessage } from './form-feedback';
@@ -21,16 +21,10 @@ export function SignUpForm() {
     setFieldErrors({});
 
     try {
-      await clientApiRequest('/api/auth/signup', {
-        method: 'POST',
-        body: JSON.stringify({
-          name: formData.get('name'),
-          email: formData.get('email'),
-          password: formData.get('password')
-        })
-      }, {
-        idempotent: true,
-        schema: clientSchemas.auth
+      await signUp({
+        name: String(formData.get('name') ?? ''),
+        email: String(formData.get('email') ?? ''),
+        password: String(formData.get('password') ?? '')
       });
 
       router.push('/app');

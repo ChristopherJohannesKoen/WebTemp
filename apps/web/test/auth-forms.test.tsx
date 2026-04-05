@@ -7,8 +7,11 @@ import { ForgotPasswordForm } from '../components/forgot-password-form';
 import { ResetPasswordForm } from '../components/reset-password-form';
 import { ApiRequestError } from '../lib/api-error';
 
-const { clientApiRequestMock, routerPushMock, routerRefreshMock } = vi.hoisted(() => ({
-  clientApiRequestMock: vi.fn(),
+const { signInMock, signUpMock, requestPasswordResetMock, resetPasswordMock, routerPushMock, routerRefreshMock } = vi.hoisted(() => ({
+  signInMock: vi.fn(),
+  signUpMock: vi.fn(),
+  requestPasswordResetMock: vi.fn(),
+  resetPasswordMock: vi.fn(),
   routerPushMock: vi.fn(),
   routerRefreshMock: vi.fn()
 }));
@@ -25,13 +28,19 @@ vi.mock('../lib/client-api', async () => {
 
   return {
     ...actual,
-    clientApiRequest: clientApiRequestMock
+    signIn: signInMock,
+    signUp: signUpMock,
+    requestPasswordReset: requestPasswordResetMock,
+    resetPassword: resetPasswordMock
   };
 });
 
 describe('auth forms', () => {
   beforeEach(() => {
-    clientApiRequestMock.mockReset();
+    signInMock.mockReset();
+    signUpMock.mockReset();
+    requestPasswordResetMock.mockReset();
+    resetPasswordMock.mockReset();
     routerPushMock.mockReset();
     routerRefreshMock.mockReset();
   });
@@ -78,7 +87,7 @@ describe('auth forms', () => {
   );
 
   it('associates field errors with controls on signup failures', async () => {
-    clientApiRequestMock.mockRejectedValueOnce(
+    signUpMock.mockRejectedValueOnce(
       new ApiRequestError('Please fix the highlighted fields.', 400, [
         {
           field: 'email',
@@ -107,7 +116,7 @@ describe('auth forms', () => {
     fireEvent.click(screen.getByTestId('sign-up-submit'));
 
     await waitFor(() => {
-      expect(clientApiRequestMock).toHaveBeenCalledTimes(1);
+      expect(signUpMock).toHaveBeenCalledTimes(1);
     });
 
     const emailInput = screen.getByTestId('sign-up-email');

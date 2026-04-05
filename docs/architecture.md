@@ -7,10 +7,11 @@ This repository is a reusable single-tenant SaaS template. It is intentionally o
 ## Runtime Topology
 
 - `apps/web` renders the public marketing shell and authenticated dashboard.
-- `apps/web` proxies `/api/*` requests to Nest through the server-side `API_ORIGIN` variable.
+- `apps/web` proxies `/api/*` requests to Nest through the server-side `API_ORIGIN` variable and consumes JSON endpoints through ts-rest contracts in `packages/contracts`.
 - `apps/api` exposes REST endpoints under `/api`, serves Swagger at `/api/docs`, and manages auth, CSRF, idempotency, RBAC, auditing, and projects.
 - `apps/api` also exposes Prometheus-compatible runtime metrics at `/api/metrics`.
 - `packages/db` owns Prisma schema, migrations, and seed data.
+- `packages/contracts` owns the shared website-facing ts-rest route contract.
 - `Postgres` is the only required backing service in v1.
 
 ## Product Modules
@@ -51,12 +52,13 @@ This repository is a reusable single-tenant SaaS template. It is intentionally o
 
 ## Web Security Boundary
 
-- `apps/web/middleware.ts` issues a per-request nonce and sets CSP, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, and related browser hardening headers.
+- `apps/web/middleware.ts` issues a per-request nonce and sets CSP, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, and related browser hardening headers through a centralized policy builder.
 - The nonce-based CSP forces dynamic rendering so Next.js can attach the nonce to framework and page scripts at request time.
-- Style hardening is staged: the enforced policy remains stable while an optional `Content-Security-Policy-Report-Only` header can exercise a stricter nonce-based style policy before full enforcement.
+- Production enforces nonce-based `script-src` and `style-src` without blanket `unsafe-inline`. Development keeps only the minimum style/script relaxations needed for local Next.js tooling.
+- `Content-Security-Policy-Report-Only` remains available as an optional rollout/debug header and emits the stricter nonce-based style policy even when development keeps local relaxations enabled.
 - Public auth pages do not render seeded local credentials or privileged bootstrap hints; those stay in docs and runbooks only.
-- The web server bridge retries unsafe requests only for explicit `csrf_invalid` responses and forwards only `SESSION_COOKIE_NAME` to the API.
-- The web transport validates JSON responses against shared contracts for high-value endpoints and fails fast on unexpected content types instead of casting arbitrary payloads.
+- The browser and server web clients both resolve JSON endpoints through `packages/contracts`, retry unsafe requests only for explicit `csrf_invalid` responses, and forward only `SESSION_COOKIE_NAME` to the API.
+- JSON responses fail fast on contract drift; downloads and exports stay on explicit non-JSON paths.
 - Auth forms expose polite live error regions and field-level accessibility wiring so server and validation failures are announced consistently.
 - Dashboard navigation is role-aware in the UI, but privileged routes remain enforced again at the route and API layers.
 
@@ -72,6 +74,14 @@ This repository is a reusable single-tenant SaaS template. It is intentionally o
 - API error structures
 
 The web app and API both rely on these schemas so UI and server drift is reduced.
+
+`packages/contracts` layers route shapes on top of those schemas so new website-facing JSON endpoints declare method, path, params, query, body, success responses, and structured error responses in one place.
+
+## Test Harness Boundary
+
+- Production runtime code does not contain E2E-only failpoint branches.
+- Browser failure-path tests use an API-only failpoint module loaded from the E2E bootstrap entrypoint.
+- The E2E harness can arm one-shot upstream failures without mixing query toggles or environment branches into website request code.
 
 ## Extension Strategy
 

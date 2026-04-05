@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Button, Card, Field, Input } from '@packages/ui';
-import { clientApiRequest, clientSchemas } from '../lib/client-api';
+import { resetPassword } from '../lib/client-api';
 import { describedByIds, toFieldErrorMap } from '../lib/form-errors';
 import { toApiError } from '../lib/api-error';
 import { FieldErrorMessage, FormErrorMessage } from './form-feedback';
@@ -21,15 +21,9 @@ export function ResetPasswordForm({ initialToken }: { initialToken?: string }) {
     setFieldErrors({});
 
     try {
-      await clientApiRequest('/api/auth/password/reset', {
-        method: 'POST',
-        body: JSON.stringify({
-          token: formData.get('token'),
-          password: formData.get('password')
-        })
-      }, {
-        idempotent: true,
-        schema: clientSchemas.auth
+      await resetPassword({
+        token: String(formData.get('token') ?? ''),
+        password: String(formData.get('password') ?? '')
       });
 
       router.push('/app');

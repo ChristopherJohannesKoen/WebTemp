@@ -5,7 +5,7 @@ import { getProjects, requireCurrentUser } from '../../lib/server-api';
 
 export default async function DashboardPage() {
   const currentUser = await requireCurrentUser();
-  const projects = await getProjects('limit=4');
+  const projects = await getProjects({ limit: 4 });
 
   return (
     <div className="grid gap-6">

@@ -40,9 +40,9 @@ Keep these credentials in local docs only. The public login and signup pages int
 ## Web Security Notes
 
 - The web app now runs with a nonce-based CSP. Because of that, pages render dynamically per request instead of using static generation.
-- In development, CSP allows websocket connections and `unsafe-eval` so Next.js HMR can function. Production keeps the stricter policy.
+- In development, CSP allows websocket connections, `unsafe-eval`, and inline styles only where Next.js tooling still requires them. Production keeps the stricter nonce-based policy for both scripts and styles.
 - If you add third-party scripts, fonts, or analytics later, update the CSP policy in `apps/web/middleware.ts` at the same time.
-- You can enable `CSP_REPORT_ONLY=true` to emit a stricter nonce-based style policy through `Content-Security-Policy-Report-Only` before removing `style-src 'unsafe-inline'` from the enforced header.
+- You can enable `CSP_REPORT_ONLY=true` to emit an additional strict nonce-based `Content-Security-Policy-Report-Only` header while validating future CSP changes locally.
 - Auth forms expose polite live error regions and field-level error associations. Keep those semantics when customizing login, signup, forgot-password, and reset-password screens.
 
 ## Verification

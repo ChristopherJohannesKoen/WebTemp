@@ -14,7 +14,7 @@ Copy `.env.example` to `.env` and adjust values as needed.
 | `API_PORT`             | Nest listen port                                       | `4000`                      |
 | `API_PREFIX`           | global API prefix                                      | `api`                       |
 | `WEB_PORT`             | web container port                                     | `3000`                      |
-| `CSP_REPORT_ONLY`      | emit a stricter report-only CSP header for staged web hardening | `false`            |
+| `CSP_REPORT_ONLY`      | emit an additional strict report-only CSP header for rollout/debug validation | `false`            |
 | `CSP_REPORT_URI`       | optional CSP reporting target used with report-only mode | empty                     |
 | `SESSION_COOKIE_NAME`  | session cookie key                                     | `ultimate_template_session` |
 | `SESSION_ROTATION_MS`  | session token rotation window                          | `43200000`                  |
@@ -77,4 +77,4 @@ When a feature flag is enabled, the API validates these envs before boot:
 - `GET /api/projects/export.csv` streams the full filtered result or returns a structured `400` with `export_limit_exceeded`.
 - `GET /api/metrics` exposes Prometheus text metrics. OTLP tracing remains optional behind `FEATURE_OBSERVABILITY`.
 - Use `ALLOWED_ORIGINS` when the site must be reached from a LAN IP or a second browser origin in development.
-- Set `CSP_REPORT_ONLY=true` when you want the web app to emit a stricter nonce-based style policy through `Content-Security-Policy-Report-Only` before enforcing it.
+- Set `CSP_REPORT_ONLY=true` when you want the web app to emit an additional strict nonce-based `Content-Security-Policy-Report-Only` header for rollout/debug validation while the production enforced header stays strict by default.

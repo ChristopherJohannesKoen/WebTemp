@@ -6,30 +6,16 @@ import { getProject } from '../../../../lib/server-api';
 export const dynamic = 'force-dynamic';
 
 type Params = Promise<{ id: string }>;
-type SearchParams = Promise<Record<string, string | string[] | undefined>>;
-
-function getSingleValue(value: string | string[] | undefined) {
-  return Array.isArray(value) ? value[0] : value;
-}
 
 export default async function ProjectDetailPage({
-  params,
-  searchParams
+  params
 }: {
   params: Params;
-  searchParams: SearchParams;
 }) {
   const { id } = await params;
-  const resolvedSearchParams = await searchParams;
-  const forceError = getSingleValue(resolvedSearchParams.forceError);
-  const queryParams = new URLSearchParams();
-
-  if (process.env.TEMPLATE_E2E === 'true' && forceError === 'upstream') {
-    queryParams.set('forceError', 'upstream');
-  }
 
   try {
-    const project = await getProject(id, queryParams.toString());
+    const project = await getProject(id);
 
     return <ProjectDetailClient project={project} />;
   } catch (error) {

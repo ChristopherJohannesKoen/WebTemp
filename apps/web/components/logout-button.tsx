@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Button } from '@packages/ui';
-import { clientApiRequest, clientSchemas } from '../lib/client-api';
+import { logout } from '../lib/client-api';
 import { toApiError } from '../lib/api-error';
 
 export function LogoutButton() {
@@ -16,11 +16,7 @@ export function LogoutButton() {
     setError(undefined);
 
     try {
-      await clientApiRequest('/api/auth/logout', {
-        method: 'POST'
-      }, {
-        schema: clientSchemas.ok
-      });
+      await logout();
 
       router.push('/login');
     } catch (caughtError) {
