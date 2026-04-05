@@ -199,7 +199,7 @@ export class AuthService {
     };
   }
 
-  async resetPassword(dto: ResetPasswordDto, metadata: SessionMetadata) {
+  async completePasswordReset(dto: ResetPasswordDto, metadata: SessionMetadata) {
     const tokenHash = this.hashToken(dto.token);
     const tokenRecord = await this.prismaService.passwordResetToken.findUnique({
       where: { tokenHash }

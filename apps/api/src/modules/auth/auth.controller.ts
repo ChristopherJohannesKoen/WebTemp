@@ -154,7 +154,7 @@ export class AuthController {
     @Req() request: AuthenticatedRequest,
     @Res({ passthrough: true }) response: Response
   ) {
-    const result = await this.authService.resetPassword(dto, {
+    const result = await this.authService.completePasswordReset(dto, {
       ipAddress: request.ip,
       userAgent: request.header('user-agent')
     });
