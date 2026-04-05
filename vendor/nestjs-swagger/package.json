@@ -6,6 +6,14 @@
   "repository": "https://github.com/nestjs/swagger",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "files": [
+    "dist/**",
+    "index.js",
+    "index.d.ts",
+    "plugin.js",
+    "LICENSE",
+    "README.md"
+  ],
   "dependencies": {
     "@microsoft/tsdoc": "0.16.0",
     "@nestjs/mapped-types": "2.1.0",

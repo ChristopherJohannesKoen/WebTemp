@@ -10,6 +10,14 @@ whose published manifests still pin vulnerable transitive dependencies.
   - source: `@nestjs/swagger@11.2.6`
   - patched dependencies: `lodash` `4.18.1`, `path-to-regexp` `8.4.2`
 
+The repo installs these patches from committed local tarballs:
+
+- `nestjs-config-4.0.3.tgz`
+- `nestjs-swagger-11.2.6.tgz`
+
+The tarballs avoid the relative-symlink behavior of `file:` directory
+dependencies, which breaks Linux and Docker builds.
+
 Only package manifests were changed. The built runtime files in `dist/` are the
 upstream package contents.
 
