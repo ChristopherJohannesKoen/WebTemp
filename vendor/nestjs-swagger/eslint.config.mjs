@@ -6,7 +6,7 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   {
-    ignores: ['tests/**'],
+    ignores: ['tests/**']
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,
@@ -15,15 +15,15 @@ export default tseslint.config(
     languageOptions: {
       globals: {
         ...globals.node,
-        ...globals.jest,
+        ...globals.jest
       },
       ecmaVersion: 5,
       sourceType: 'module',
       parserOptions: {
         projectService: true,
-        tsconfigRootDir: import.meta.dirname,
-      },
-    },
+        tsconfigRootDir: import.meta.dirname
+      }
+    }
   },
   {
     rules: {
@@ -42,6 +42,6 @@ export default tseslint.config(
       '@typescript-eslint/only-throw-error': 'warn',
       'no-useless-escape': 'off',
       '@typescript-eslint/no-require-imports': 'off'
-    },
-  },
+    }
+  }
 );
