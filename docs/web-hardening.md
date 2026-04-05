@@ -12,6 +12,21 @@ This document describes the hardened website baseline in `apps/web`. It is the r
 
 The goal is not "secure enough for a demo." The goal is a repeatable default that can survive real product customization without regressing into ad hoc client behavior.
 
+## Reference Baseline
+
+The web hardening model in this document was informed by the local reference set
+under [`references/`](../references), especially:
+
+- `next-safe-middleware-main` and the archived Next.js CSP issue PDFs for nonce
+  and App Router behavior
+- `ts-rest-main`, `zod-main`, and `zodios-main` for contract-backed client
+  patterns
+- `react-spectrum-main` plus the NVDA and React Spectrum accessibility issue
+  captures for auth-form error semantics
+
+The fuller provenance map is documented in
+[Reference Baseline](./reference-baseline.md).
+
 ## Browser Boundary
 
 The website owns its browser security policy in [`apps/web/middleware.ts`](../apps/web/middleware.ts) and [`apps/web/lib/csp.ts`](../apps/web/lib/csp.ts).
