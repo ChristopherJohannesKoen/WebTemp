@@ -72,6 +72,8 @@ services:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
+      args:
+        API_ORIGIN: http://api:4000
     environment:
       NODE_ENV: ${NODE_ENV:-development}
       APP_ENV: ${APP_ENV:-local}
