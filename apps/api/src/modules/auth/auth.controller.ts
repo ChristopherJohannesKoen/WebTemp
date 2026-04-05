@@ -154,14 +154,15 @@ export class AuthController {
     @Req() request: AuthenticatedRequest,
     @Res({ passthrough: true }) response: Response
   ) {
-    const result = await this.authService.completePasswordReset(dto, {
+    const user = await this.authService.completePasswordReset(dto);
+    const session = await this.authService.issueSessionForUser(user.id, {
       ipAddress: request.ip,
       userAgent: request.header('user-agent')
     });
 
-    this.applySessionCookie(response, result.token, result.expiresAt);
+    this.applySessionCookie(response, session.token, session.expiresAt);
 
-    return { user: result.user };
+    return { user };
   }
 
   @Post('logout-all')
@@ -184,7 +185,7 @@ export class AuthController {
   private applySessionCookie(response: Response, token: string, expiresAt: Date) {
     response.cookie(
       this.authService.getCookieName(),
-      token,
+      this.authService.encodeSessionCookieToken(token),
       this.authService.getCookieOptions(expiresAt)
     );
   }

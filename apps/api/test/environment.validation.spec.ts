@@ -13,6 +13,7 @@ const baseEnvironment = {
   API_PREFIX: 'api',
   DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/ultimate_template?schema=public',
   SESSION_COOKIE_NAME: 'ultimate_template_session',
+  SESSION_COOKIE_ENCRYPTION_KEY: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
   ARGON2_MEMORY_COST: '19456',
   RATE_LIMIT_WINDOW_MS: '60000',
   RATE_LIMIT_MAX: '120',

@@ -9,9 +9,17 @@ export class SessionMiddleware implements NestMiddleware {
 
   async use(request: AuthenticatedRequest, response: Response, next: NextFunction) {
     const cookieName = this.sessionService.getCookieName();
-    const token = request.cookies?.[cookieName];
+    const cookieValue = request.cookies?.[cookieName];
 
-    if (!token || typeof token !== 'string') {
+    if (!cookieValue || typeof cookieValue !== 'string') {
+      next();
+      return;
+    }
+
+    const token = this.sessionService.decodeSessionCookieToken(cookieValue);
+
+    if (!token) {
+      response.clearCookie(cookieName, this.sessionService.getClearCookieOptions());
       next();
       return;
     }
@@ -23,6 +31,7 @@ export class SessionMiddleware implements NestMiddleware {
     });
 
     if (!sessionContext) {
+      response.clearCookie(cookieName, this.sessionService.getClearCookieOptions());
       next();
       return;
     }
@@ -32,7 +41,7 @@ export class SessionMiddleware implements NestMiddleware {
     if (sessionContext.rotatedToken) {
       response.cookie(
         cookieName,
-        sessionContext.rotatedToken,
+        this.sessionService.encodeSessionCookieToken(sessionContext.rotatedToken),
         this.sessionService.getCookieOptions(sessionContext.session.expiresAt)
       );
     }

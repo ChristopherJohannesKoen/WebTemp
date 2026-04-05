@@ -21,6 +21,7 @@ const environmentSchema = Joi.object({
   API_PREFIX: Joi.string().default('api'),
   DATABASE_URL: Joi.string().required(),
   SESSION_COOKIE_NAME: Joi.string().default('ultimate_template_session'),
+  SESSION_COOKIE_ENCRYPTION_KEY: Joi.string().hex().length(64).required(),
   ARGON2_MEMORY_COST: Joi.number().default(19456),
   RATE_LIMIT_WINDOW_MS: Joi.number().default(60000),
   RATE_LIMIT_MAX: Joi.number().default(120),

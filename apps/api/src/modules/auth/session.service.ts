@@ -1,6 +1,12 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
+import {
+  createCipheriv,
+  createDecipheriv,
+  createHash,
+  randomBytes,
+  timingSafeEqual
+} from 'node:crypto';
 import type { SessionSummary, SessionUser } from '@packages/shared';
 import type { User } from '@prisma/client';
 import { publicUserSelect, type PublicUserRecord } from '../../common/prisma/public-selects';
@@ -250,6 +256,39 @@ export class SessionService {
     return this.configService.get<string>('SESSION_COOKIE_NAME', 'ultimate_template_session');
   }
 
+  encodeSessionCookieToken(rawToken: string) {
+    const iv = randomBytes(12);
+    const cipher = createCipheriv('aes-256-gcm', this.getCookieEncryptionKey(), iv);
+    const encryptedToken = Buffer.concat([cipher.update(rawToken, 'utf8'), cipher.final()]);
+    const authTag = cipher.getAuthTag();
+
+    return [iv, encryptedToken, authTag].map((part) => part.toString('base64url')).join('.');
+  }
+
+  decodeSessionCookieToken(cookieValue: string) {
+    const [ivValue, encryptedTokenValue, authTagValue] = cookieValue.split('.');
+
+    if (!ivValue || !encryptedTokenValue || !authTagValue) {
+      return undefined;
+    }
+
+    try {
+      const decipher = createDecipheriv(
+        'aes-256-gcm',
+        this.getCookieEncryptionKey(),
+        Buffer.from(ivValue, 'base64url')
+      );
+      decipher.setAuthTag(Buffer.from(authTagValue, 'base64url'));
+
+      return Buffer.concat([
+        decipher.update(Buffer.from(encryptedTokenValue, 'base64url')),
+        decipher.final()
+      ]).toString('utf8');
+    } catch {
+      return undefined;
+    }
+  }
+
   attachSessionToRequest(
     request: AuthenticatedRequest,
     sessionContext: SessionContext | undefined
@@ -334,6 +373,21 @@ export class SessionService {
 
   private generateToken() {
     return randomBytes(32).toString('hex');
+  }
+
+  private getCookieEncryptionKey() {
+    const encryptionKey = Buffer.from(
+      this.configService.get<string>('SESSION_COOKIE_ENCRYPTION_KEY', ''),
+      'hex'
+    );
+
+    if (encryptionKey.length !== 32) {
+      throw new Error(
+        'SESSION_COOKIE_ENCRYPTION_KEY must be a 64-character hex string (32 bytes).'
+      );
+    }
+
+    return encryptionKey;
   }
 
   private getSessionRotationWindowMs() {
