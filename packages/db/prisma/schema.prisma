@@ -13,6 +13,7 @@ model User {
   name                String
   passwordHash        String
   role                Role                 @default(member)
+  bootstrapOwnership  BootstrapState?      @relation("BootstrapOwner")
   sessions            Session[]
   passwordResetTokens PasswordResetToken[]
   auditLogs           AuditLog[]           @relation("AuditActor")
@@ -21,19 +22,30 @@ model User {
   updatedAt           DateTime             @updatedAt
 }
 
+model BootstrapState {
+  id               Int      @id @default(1)
+  bootstrapOwnerId String   @unique
+  bootstrapOwner   User     @relation("BootstrapOwner", fields: [bootstrapOwnerId], references: [id], onDelete: Restrict)
+  completedAt      DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
 model Session {
-  id         String   @id @default(cuid())
-  tokenHash  String   @unique
-  userId     String
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  expiresAt  DateTime
-  createdAt  DateTime @default(now())
-  lastUsedAt DateTime @default(now())
-  ipAddress  String?
-  userAgent  String?
+  id             String   @id @default(cuid())
+  tokenHash      String   @unique
+  csrfTokenHash  String
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt      DateTime
+  createdAt      DateTime @default(now())
+  lastUsedAt     DateTime @default(now())
+  lastRotatedAt  DateTime @default(now())
+  ipAddress      String?
+  userAgent      String?
 
   @@index([userId])
   @@index([expiresAt])
+  @@index([lastRotatedAt])
 }
 
 model PasswordResetToken {
@@ -64,6 +76,25 @@ model AuditLog {
   @@index([createdAt])
 }
 
+model IdempotencyRequest {
+  id                 String            @id @default(cuid())
+  scope              String
+  idempotencyKey     String
+  method             String
+  path               String
+  fingerprint        String
+  status             IdempotencyStatus @default(pending)
+  responseStatusCode Int?
+  responseBody       Json?
+  expiresAt          DateTime
+  completedAt        DateTime?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  @@unique([scope, idempotencyKey, method, path])
+  @@index([expiresAt])
+}
+
 model Project {
   id          String        @id @default(cuid())
   name        String
@@ -78,6 +109,7 @@ model Project {
   @@index([status])
   @@index([isArchived])
   @@index([creatorId])
+  @@index([updatedAt, id])
 }
 
 enum Role {
@@ -89,5 +121,10 @@ enum Role {
 enum ProjectStatus {
   active
   paused
+  completed
+}
+
+enum IdempotencyStatus {
+  pending
   completed
 }

@@ -4,8 +4,8 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import type { Role, UserSummary } from '@packages/shared';
 import { Button, Select } from '@packages/ui';
+import { updateUserRole } from '../lib/client-api';
 import { toApiError } from '../lib/api-error';
-import { clientApiRequest } from '../lib/client-api';
 
 export function RoleForm({ user }: { user: UserSummary }) {
   const router = useRouter();
@@ -17,12 +17,7 @@ export function RoleForm({ user }: { user: UserSummary }) {
     setError(undefined);
 
     try {
-      await clientApiRequest<UserSummary>(`/api/admin/users/${user.id}/role`, {
-        method: 'PATCH',
-        body: JSON.stringify({
-          role: formData.get('role') as Role
-        })
-      });
+      await updateUserRole(user.id, formData.get('role') as Role);
 
       router.refresh();
     } catch (caughtError) {
@@ -32,24 +27,23 @@ export function RoleForm({ user }: { user: UserSummary }) {
     }
   }
 
-  if (user.role === 'owner') {
-    return (
-      <span className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-700">Owner</span>
-    );
-  }
-
   return (
-    <form action={handleSubmit} className="grid gap-2">
+    <form action={handleSubmit} className="grid gap-2" data-testid="role-form">
       <div className="flex flex-wrap items-center gap-2">
-        <Select defaultValue={user.role} name="role">
+        <Select data-testid="role-select" defaultValue={user.role} name="role">
+          <option value="owner">Owner</option>
           <option value="admin">Admin</option>
           <option value="member">Member</option>
         </Select>
-        <Button disabled={pending} type="submit" variant="secondary">
+        <Button data-testid="role-submit" disabled={pending} type="submit" variant="secondary">
           {pending ? 'Saving...' : 'Update'}
         </Button>
       </div>
-      {error ? <p className="text-xs text-rose-600">{error}</p> : null}
+      {error ? (
+        <p className="text-xs text-rose-600" data-testid="role-form-error">
+          {error}
+        </p>
+      ) : null}
     </form>
   );
 }

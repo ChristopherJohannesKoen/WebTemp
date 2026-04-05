@@ -18,6 +18,8 @@ FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+ARG API_ORIGIN=http://localhost:4000
+ENV API_ORIGIN=${API_ORIGIN}
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run prisma:generate && npm run build --workspace=@apps/web
 

@@ -1,4 +1,5 @@
 import 'reflect-metadata';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ProjectsService } from '../src/modules/projects/projects.service';
 
@@ -6,12 +7,26 @@ const auditService = {
   log: vi.fn()
 };
 
+const configService = {
+  get: vi.fn((key: string, defaultValue?: string) => {
+    if (key === 'EXPORT_SYNC_LIMIT') {
+      return '5000';
+    }
+
+    return defaultValue;
+  })
+};
+
+const projectPolicyService = {
+  assertCanMutateProject: vi.fn().mockResolvedValue(undefined)
+};
+
 const creator = {
   id: 'user_owner',
   email: 'owner@example.com',
   name: 'Owner User',
   role: 'owner'
-};
+} as const;
 
 function createProjectRecord(overrides: Partial<Record<string, unknown>> = {}) {
   return {
@@ -20,6 +35,7 @@ function createProjectRecord(overrides: Partial<Record<string, unknown>> = {}) {
     description: 'Template-friendly project',
     status: 'active',
     isArchived: false,
+    creatorId: creator.id,
     createdAt: new Date('2026-04-01T12:00:00.000Z'),
     updatedAt: new Date('2026-04-02T12:00:00.000Z'),
     creator,
@@ -32,55 +48,138 @@ describe('ProjectsService', () => {
     vi.clearAllMocks();
   });
 
-  it('lists paginated projects', async () => {
+  it('lists cursor-paginated projects', async () => {
     const prismaService = {
       project: {
-        count: vi.fn().mockResolvedValue(1),
         findMany: vi.fn().mockResolvedValue([createProjectRecord()])
-      },
-      $transaction: vi.fn().mockResolvedValue([1, [createProjectRecord()]])
+      }
     };
 
-    const service = new ProjectsService(prismaService as never, auditService as never);
+    const service = new ProjectsService(
+      prismaService as never,
+      configService as never,
+      auditService as never,
+      projectPolicyService as never
+    );
     const result = await service.listProjects({
-      page: 1,
-      pageSize: 10,
+      limit: 10,
       includeArchived: false
     });
 
-    expect(result.total).toBe(1);
+    expect(result.hasMore).toBe(false);
+    expect(result.nextCursor).toBeNull();
     expect(result.items[0]?.creator.email).toBe('owner@example.com');
+    expect(prismaService.project.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: expect.objectContaining({
+          creator: expect.objectContaining({
+            select: expect.objectContaining({
+              id: true,
+              email: true,
+              name: true,
+              role: true
+            })
+          })
+        })
+      })
+    );
   });
 
-  it('exports projects as CSV', async () => {
+  it('streams the full filtered CSV result under the synchronous limit', async () => {
     const prismaService = {
       project: {
-        count: vi.fn().mockResolvedValue(1),
-        findMany: vi.fn().mockResolvedValue([
-          createProjectRecord({
-            description: 'Handles "quotes" and commas, too.'
-          })
-        ])
-      },
-      $transaction: vi.fn().mockResolvedValue([
-        1,
-        [
-          createProjectRecord({
-            description: 'Handles "quotes" and commas, too.'
-          })
-        ]
-      ])
+        count: vi.fn().mockResolvedValue(2),
+        findMany: vi
+          .fn()
+          .mockResolvedValueOnce([
+            createProjectRecord({
+              description: 'Handles "quotes" and commas, too.'
+            }),
+            createProjectRecord({
+              id: 'project_2',
+              name: 'Second project',
+              description: 'Additional exported row.'
+            })
+          ])
+          .mockResolvedValueOnce([])
+      }
     };
 
-    const service = new ProjectsService(prismaService as never, auditService as never);
-    const csv = await service.exportProjects({
-      page: 1,
-      pageSize: 10,
+    const response = {
+      write: vi.fn(),
+      end: vi.fn()
+    };
+
+    const service = new ProjectsService(
+      prismaService as never,
+      configService as never,
+      auditService as never,
+      projectPolicyService as never
+    );
+
+    await service.exportProjects(response as never, {
+      limit: 10,
       includeArchived: false
     });
 
-    expect(csv).toContain('"Handles ""quotes"" and commas, too."');
-    expect(csv).toContain('"owner@example.com"');
+    expect(response.write).toHaveBeenCalledWith(expect.stringContaining('"owner@example.com"'));
+    expect(response.write).toHaveBeenCalledWith(expect.stringContaining('"Second project"'));
+    expect(response.end).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns a structured export_limit_exceeded error when the filtered export is too large', async () => {
+    const limitedConfigService = {
+      get: vi.fn((key: string, defaultValue?: string) => {
+        if (key === 'EXPORT_SYNC_LIMIT') {
+          return '1';
+        }
+
+        return defaultValue;
+      })
+    };
+
+    const prismaService = {
+      project: {
+        count: vi.fn().mockResolvedValue(2)
+      }
+    };
+
+    const response = {
+      write: vi.fn(),
+      end: vi.fn()
+    };
+
+    const service = new ProjectsService(
+      prismaService as never,
+      limitedConfigService as never,
+      auditService as never,
+      projectPolicyService as never
+    );
+
+    let caughtError: BadRequestException | undefined;
+
+    try {
+      await service.exportProjects(response as never, {
+        limit: 10,
+        includeArchived: false
+      });
+    } catch (error) {
+      caughtError = error as BadRequestException;
+    }
+
+    expect(caughtError).toBeInstanceOf(BadRequestException);
+    expect(caughtError?.getResponse()).toEqual(
+      expect.objectContaining({
+        message: expect.stringContaining('synchronous export limit'),
+        errors: expect.arrayContaining([
+          expect.objectContaining({
+            code: 'export_limit_exceeded'
+          })
+        ])
+      })
+    );
+    expect(response.write).not.toHaveBeenCalled();
+    expect(response.end).not.toHaveBeenCalled();
   });
 
   it('logs archive actions when a project is archived', async () => {
@@ -91,7 +190,12 @@ describe('ProjectsService', () => {
       }
     };
 
-    const service = new ProjectsService(prismaService as never, auditService as never);
+    const service = new ProjectsService(
+      prismaService as never,
+      configService as never,
+      auditService as never,
+      projectPolicyService as never
+    );
 
     await service.updateProject(
       {
@@ -110,6 +214,74 @@ describe('ProjectsService', () => {
       expect.objectContaining({
         action: 'project.archived',
         targetId: 'project_1'
+      })
+    );
+  });
+
+  it('rejects member writes to another member project', async () => {
+    projectPolicyService.assertCanMutateProject.mockRejectedValueOnce(
+      new ForbiddenException('You do not have permission to modify this project.')
+    );
+
+    const prismaService = {
+      project: {
+        findUnique: vi.fn().mockResolvedValue(
+          createProjectRecord({
+            creatorId: 'someone_else'
+          })
+        )
+      }
+    };
+
+    const service = new ProjectsService(
+      prismaService as never,
+      configService as never,
+      auditService as never,
+      projectPolicyService as never
+    );
+
+    await expect(
+      service.deleteProject(
+        {
+          id: 'user_member',
+          email: 'member@example.com',
+          name: 'Member User',
+          role: 'member'
+        },
+        'project_1'
+      )
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('uses the same narrow creator select for getProject', async () => {
+    const prismaService = {
+      project: {
+        findUnique: vi.fn().mockResolvedValue(createProjectRecord())
+      }
+    };
+
+    const service = new ProjectsService(
+      prismaService as never,
+      configService as never,
+      auditService as never,
+      projectPolicyService as never
+    );
+
+    const project = await service.getProject('project_1');
+
+    expect(project.creator.email).toBe('owner@example.com');
+    expect(prismaService.project.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: expect.objectContaining({
+          creator: expect.objectContaining({
+            select: expect.objectContaining({
+              id: true,
+              email: true,
+              name: true,
+              role: true
+            })
+          })
+        })
       })
     );
   });

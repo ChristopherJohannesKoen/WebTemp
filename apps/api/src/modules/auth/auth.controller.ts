@@ -1,9 +1,22 @@
-import { Body, Controller, Get, HttpCode, Post, Req, Res, UseGuards } from '@nestjs/common';
-import { ApiCookieAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Param,
+  Post,
+  Req,
+  Res,
+  UseGuards,
+  UseInterceptors
+} from '@nestjs/common';
+import { ApiCookieAuth, ApiHeader, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { SessionGuard } from '../../common/guards/session.guard';
 import type { AuthenticatedRequest } from '../../common/types/authenticated-request';
+import { IdempotencyInterceptor } from '../idempotency/idempotency.interceptor';
 import { AuthService } from './auth.service';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { LoginDto } from './dto/login.dto';
@@ -16,6 +29,8 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('signup')
+  @UseInterceptors(IdempotencyInterceptor)
+  @ApiHeader({ name: 'Idempotency-Key', required: true })
   @ApiOperation({ summary: 'Register a new account' })
   async signup(
     @Body() dto: SignupDto,
@@ -27,11 +42,7 @@ export class AuthController {
       userAgent: request.header('user-agent')
     });
 
-    response.cookie(
-      this.authService.getCookieName(),
-      result.token,
-      this.authService.getCookieOptions(result.expiresAt)
-    );
+    this.applySessionCookie(response, result.token, result.expiresAt);
 
     return { user: result.user };
   }
@@ -49,11 +60,7 @@ export class AuthController {
       userAgent: request.header('user-agent')
     });
 
-    response.cookie(
-      this.authService.getCookieName(),
-      result.token,
-      this.authService.getCookieOptions(result.expiresAt)
-    );
+    this.applySessionCookie(response, result.token, result.expiresAt);
 
     return { user: result.user };
   }
@@ -69,13 +76,22 @@ export class AuthController {
     @Res({ passthrough: true }) response: Response
   ) {
     await this.authService.logout(request.sessionToken, currentUser.id);
-    response.clearCookie(this.authService.getCookieName(), {
-      httpOnly: true,
-      sameSite: 'lax',
-      path: '/'
-    });
+    response.clearCookie(
+      this.authService.getCookieName(),
+      this.authService.getClearCookieOptions()
+    );
 
     return { ok: true };
+  }
+
+  @Get('csrf')
+  @UseGuards(SessionGuard)
+  @ApiCookieAuth()
+  @ApiOperation({ summary: 'Issue a synchronizer CSRF token for the active session' })
+  async csrf(@Req() request: AuthenticatedRequest) {
+    return {
+      csrfToken: await this.authService.issueCsrfToken(request.currentSession!.id)
+    };
   }
 
   @Get('me')
@@ -86,6 +102,43 @@ export class AuthController {
     return { user: currentUser };
   }
 
+  @Get('sessions')
+  @UseGuards(SessionGuard)
+  @ApiCookieAuth()
+  @ApiOperation({ summary: 'List active sessions for the current user' })
+  listSessions(
+    @Req() request: AuthenticatedRequest,
+    @CurrentUser() currentUser: NonNullable<AuthenticatedRequest['currentUser']>
+  ) {
+    return this.authService.listSessions(currentUser, request.currentSession?.id);
+  }
+
+  @Delete('sessions/:sessionId')
+  @UseGuards(SessionGuard)
+  @ApiCookieAuth()
+  @ApiOperation({ summary: 'Revoke a single session for the current user' })
+  async revokeSession(
+    @Req() request: AuthenticatedRequest,
+    @CurrentUser() currentUser: NonNullable<AuthenticatedRequest['currentUser']>,
+    @Param('sessionId') sessionId: string,
+    @Res({ passthrough: true }) response: Response
+  ) {
+    const result = await this.authService.revokeSession(
+      currentUser,
+      sessionId,
+      request.currentSession?.id
+    );
+
+    if (result.revokedCurrent) {
+      response.clearCookie(
+        this.authService.getCookieName(),
+        this.authService.getClearCookieOptions()
+      );
+    }
+
+    return result;
+  }
+
   @Post('password/forgot')
   @HttpCode(200)
   forgotPassword(@Body() dto: ForgotPasswordDto) {
@@ -94,6 +147,8 @@ export class AuthController {
 
   @Post('password/reset')
   @HttpCode(200)
+  @UseInterceptors(IdempotencyInterceptor)
+  @ApiHeader({ name: 'Idempotency-Key', required: true })
   async resetPassword(
     @Body() dto: ResetPasswordDto,
     @Req() request: AuthenticatedRequest,
@@ -104,12 +159,33 @@ export class AuthController {
       userAgent: request.header('user-agent')
     });
 
-    response.cookie(
-      this.authService.getCookieName(),
-      result.token,
-      this.authService.getCookieOptions(result.expiresAt)
-    );
+    this.applySessionCookie(response, result.token, result.expiresAt);
 
     return { user: result.user };
+  }
+
+  @Post('logout-all')
+  @HttpCode(200)
+  @UseGuards(SessionGuard)
+  @ApiCookieAuth()
+  @ApiOperation({ summary: 'Revoke every active session for the current user' })
+  async logoutAll(
+    @CurrentUser() currentUser: NonNullable<AuthenticatedRequest['currentUser']>,
+    @Res({ passthrough: true }) response: Response
+  ) {
+    const result = await this.authService.logoutAll(currentUser);
+    response.clearCookie(
+      this.authService.getCookieName(),
+      this.authService.getClearCookieOptions()
+    );
+    return result;
+  }
+
+  private applySessionCookie(response: Response, token: string, expiresAt: Date) {
+    response.cookie(
+      this.authService.getCookieName(),
+      token,
+      this.authService.getCookieOptions(expiresAt)
+    );
   }
 }

@@ -4,8 +4,8 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import type { UserSummary } from '@packages/shared';
 import { Button, Field, Input } from '@packages/ui';
+import { updateProfile } from '../lib/client-api';
 import { toApiError } from '../lib/api-error';
-import { clientApiRequest } from '../lib/client-api';
 
 export function ProfileForm({ user }: { user: UserSummary }) {
   const router = useRouter();
@@ -17,11 +17,8 @@ export function ProfileForm({ user }: { user: UserSummary }) {
     setError(undefined);
 
     try {
-      await clientApiRequest<UserSummary>('/api/users/me', {
-        method: 'PATCH',
-        body: JSON.stringify({
-          name: formData.get('name')
-        })
+      await updateProfile({
+        name: String(formData.get('name') ?? '')
       });
 
       router.refresh();
@@ -33,9 +30,9 @@ export function ProfileForm({ user }: { user: UserSummary }) {
   }
 
   return (
-    <form action={handleSubmit} className="grid gap-5">
+    <form action={handleSubmit} className="grid gap-5" data-testid="profile-form">
       <Field hint="This is the display name used across the dashboard." label="Name">
-        <Input defaultValue={user.name} name="name" required />
+        <Input data-testid="profile-name" defaultValue={user.name} name="name" required />
       </Field>
       <Field label="Email">
         <Input defaultValue={user.email} disabled name="email" type="email" />
@@ -43,8 +40,12 @@ export function ProfileForm({ user }: { user: UserSummary }) {
       <Field hint="Roles are assigned in the admin console." label="Role">
         <Input defaultValue={user.role} disabled name="role" />
       </Field>
-      {error ? <p className="text-sm text-rose-600">{error}</p> : null}
-      <Button disabled={pending} type="submit">
+      {error ? (
+        <p className="text-sm text-rose-600" data-testid="profile-error">
+          {error}
+        </p>
+      ) : null}
+      <Button data-testid="profile-save" disabled={pending} type="submit">
         {pending ? 'Saving...' : 'Save profile'}
       </Button>
     </form>

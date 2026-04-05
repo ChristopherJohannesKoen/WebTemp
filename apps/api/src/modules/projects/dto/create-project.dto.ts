@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { ProjectStatus } from '@prisma/client';
-import { IsEnum, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsBoolean, IsEnum, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 
 export class CreateProjectDto {
   @ApiProperty()
@@ -19,4 +19,9 @@ export class CreateProjectDto {
   @IsOptional()
   @IsEnum(ProjectStatus)
   status: ProjectStatus = ProjectStatus.active;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  isArchived?: boolean;
 }

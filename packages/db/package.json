@@ -2,7 +2,7 @@
   "name": "@packages/db",
   "private": true,
   "scripts": {
-    "build": "node ../../scripts/with-env.mjs prisma generate --schema ./prisma/schema.prisma && node -e \"require('node:fs').mkdirSync('dist', { recursive: true }); require('node:fs').writeFileSync('dist/.prisma-generated', 'ok');\"",
+    "build": "node -e \"require('node:fs').mkdirSync('dist', { recursive: true }); require('node:fs').writeFileSync('dist/.prisma-generated', 'ok');\"",
     "dev": "npm run prisma:generate",
     "lint": "node ../../scripts/with-env.mjs prisma validate --schema ./prisma/schema.prisma",
     "typecheck": "node ../../scripts/with-env.mjs prisma validate --schema ./prisma/schema.prisma",

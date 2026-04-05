@@ -5,6 +5,8 @@ import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthController } from '../src/modules/auth/auth.controller';
 import { AuthService } from '../src/modules/auth/auth.service';
+import { IdempotencyInterceptor } from '../src/modules/idempotency/idempotency.interceptor';
+import { IdempotencyService } from '../src/modules/idempotency/idempotency.service';
 
 describe('AuthController (e2e)', () => {
   let app: INestApplication;
@@ -36,6 +38,21 @@ describe('AuthController (e2e)', () => {
         {
           provide: AuthService,
           useValue: authService
+        },
+        {
+          provide: IdempotencyInterceptor,
+          useValue: {
+            intercept: (_: unknown, next: { handle: () => unknown }) => next.handle()
+          }
+        },
+        {
+          provide: IdempotencyService,
+          useValue: {
+            beginRequest: vi.fn(),
+            completeRequest: vi.fn(),
+            abandonRequest: vi.fn(),
+            createFingerprint: vi.fn()
+          }
         }
       ]
     }).compile();
@@ -45,7 +62,7 @@ describe('AuthController (e2e)', () => {
   });
 
   afterEach(async () => {
-    await app.close();
+    await app?.close();
     vi.clearAllMocks();
   });
 

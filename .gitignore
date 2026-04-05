@@ -3,6 +3,8 @@ node_modules
 dist
 .turbo
 .env
+.env.perf
+.env.e2e
 .env.local
 *.log
 coverage
@@ -12,3 +14,4 @@ test-results
 apps/web/tsconfig.tsbuildinfo
 *.tsbuildinfo
 server/
+references

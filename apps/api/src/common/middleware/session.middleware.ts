@@ -1,21 +1,14 @@
 import { Injectable, NestMiddleware } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import type { NextFunction, Response } from 'express';
-import { AuthService } from '../../modules/auth/auth.service';
 import type { AuthenticatedRequest } from '../types/authenticated-request';
+import { SessionService } from '../../modules/auth/session.service';
 
 @Injectable()
 export class SessionMiddleware implements NestMiddleware {
-  constructor(
-    private readonly authService: AuthService,
-    private readonly configService: ConfigService
-  ) {}
+  constructor(private readonly sessionService: SessionService) {}
 
-  async use(request: AuthenticatedRequest, _: Response, next: NextFunction) {
-    const cookieName = this.configService.get<string>(
-      'SESSION_COOKIE_NAME',
-      'ultimate_template_session'
-    );
+  async use(request: AuthenticatedRequest, response: Response, next: NextFunction) {
+    const cookieName = this.sessionService.getCookieName();
     const token = request.cookies?.[cookieName];
 
     if (!token || typeof token !== 'string') {
@@ -24,7 +17,26 @@ export class SessionMiddleware implements NestMiddleware {
     }
 
     request.sessionToken = token;
-    request.currentUser = await this.authService.getSessionUserFromToken(token);
+    const sessionContext = await this.sessionService.resolveSessionContext(token, {
+      ipAddress: request.ip,
+      userAgent: request.header('user-agent')
+    });
+
+    if (!sessionContext) {
+      next();
+      return;
+    }
+
+    this.sessionService.attachSessionToRequest(request, sessionContext);
+
+    if (sessionContext.rotatedToken) {
+      response.cookie(
+        cookieName,
+        sessionContext.rotatedToken,
+        this.sessionService.getCookieOptions(sessionContext.session.expiresAt)
+      );
+    }
+
     next();
   }
 }

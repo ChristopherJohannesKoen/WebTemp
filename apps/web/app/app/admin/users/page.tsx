@@ -1,4 +1,4 @@
-import { redirect } from 'next/navigation';
+import { forbidden } from 'next/navigation';
 import { Badge, Card } from '@packages/ui';
 import { RoleForm } from '../../../../components/role-form';
 import { formatDate, roleTone } from '../../../../lib/display';
@@ -14,12 +14,15 @@ export default async function AdminUsersPage({ searchParams }: { searchParams: S
   const currentUser = await requireCurrentUser();
 
   if (currentUser.role === 'member') {
-    redirect('/app');
+    forbidden();
   }
 
   const resolvedSearchParams = await searchParams;
   const page = getSingleValue(resolvedSearchParams.page) ?? '1';
-  const users = await getUsers(`page=${page}&pageSize=20`);
+  const users = await getUsers({
+    page: Number(page),
+    pageSize: 20
+  });
 
   return (
     <div className="grid gap-6">
@@ -33,7 +36,11 @@ export default async function AdminUsersPage({ searchParams }: { searchParams: S
       </section>
       <div className="grid gap-4">
         {users.items.map((user) => (
-          <Card className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr_260px]" key={user.id}>
+          <Card
+            className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr_260px]"
+            data-testid={`admin-user-${user.email}`}
+            key={user.id}
+          >
             <div className="space-y-2">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge tone={roleTone(user.role)}>{user.role}</Badge>

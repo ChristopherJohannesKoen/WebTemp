@@ -28,18 +28,33 @@ services:
       dockerfile: apps/api/Dockerfile
     environment:
       NODE_ENV: ${NODE_ENV:-development}
+      APP_ENV: ${APP_ENV:-local}
       APP_URL: ${APP_URL:-http://localhost:3000}
       API_ORIGIN: http://api:4000
       API_PORT: ${API_PORT:-4000}
       API_PREFIX: ${API_PREFIX:-api}
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-ultimate_template}?schema=public
-      SESSION_SECRET: ${SESSION_SECRET:-change-me-to-a-long-random-string}
       SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-ultimate_template_session}
       ARGON2_MEMORY_COST: ${ARGON2_MEMORY_COST:-19456}
       RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-60000}
       RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-120}
+      SESSION_ROTATION_MS: ${SESSION_ROTATION_MS:-43200000}
+      SESSION_TOUCH_INTERVAL_MS: ${SESSION_TOUCH_INTERVAL_MS:-600000}
+      SESSION_MAX_ACTIVE: ${SESSION_MAX_ACTIVE:-5}
+      IDEMPOTENCY_TTL_SECONDS: ${IDEMPOTENCY_TTL_SECONDS:-86400}
+      IDEMPOTENCY_CLEANUP_INTERVAL_MS: ${IDEMPOTENCY_CLEANUP_INTERVAL_MS:-900000}
+      IDEMPOTENCY_CLEANUP_BATCH_SIZE: ${IDEMPOTENCY_CLEANUP_BATCH_SIZE:-500}
+      EXPORT_SYNC_LIMIT: ${EXPORT_SYNC_LIMIT:-5000}
+      EXPOSE_DEV_RESET_DETAILS: ${EXPOSE_DEV_RESET_DETAILS:-false}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
+      ALLOW_MISSING_ORIGIN_FOR_DEV: ${ALLOW_MISSING_ORIGIN_FOR_DEV:-false}
       SEED_OWNER_EMAIL: ${SEED_OWNER_EMAIL:-owner@example.com}
       SEED_OWNER_PASSWORD: ${SEED_OWNER_PASSWORD:-ChangeMe123!}
+      FEATURE_EMAIL: ${FEATURE_EMAIL:-false}
+      FEATURE_STORAGE: ${FEATURE_STORAGE:-false}
+      FEATURE_CACHE: ${FEATURE_CACHE:-false}
+      FEATURE_OBSERVABILITY: ${FEATURE_OBSERVABILITY:-false}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
     depends_on:
       db:
         condition: service_healthy
@@ -57,8 +72,11 @@ services:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
+      args:
+        API_ORIGIN: http://api:4000
     environment:
       NODE_ENV: ${NODE_ENV:-development}
+      APP_ENV: ${APP_ENV:-local}
       APP_URL: ${APP_URL:-http://localhost:3000}
       API_ORIGIN: http://api:4000
       WEB_PORT: ${WEB_PORT:-3000}

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Badge } from '@packages/ui';
 import type { SessionUser } from '@packages/shared';
+import { canSeeAdminNav } from '../lib/authorization';
 import { LogoutButton } from './logout-button';
 
 export function AppShell({
@@ -10,6 +11,13 @@ export function AppShell({
   children: React.ReactNode;
   currentUser: SessionUser;
 }) {
+  const navigationItems = [
+    { href: '/app', label: 'Overview' },
+    { href: '/app/projects', label: 'Projects' },
+    { href: '/app/settings', label: 'Settings' },
+    ...(canSeeAdminNav(currentUser.role) ? [{ href: '/app/admin/users', label: 'Admin' }] : [])
+  ];
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
       <div className="mx-auto grid min-h-screen max-w-7xl gap-6 px-4 py-6 lg:grid-cols-[260px_1fr]">
@@ -30,27 +38,16 @@ export function AppShell({
             </Badge>
           </div>
           <nav className="mt-8 grid gap-2 text-sm">
-            <Link className="rounded-2xl px-4 py-3 transition hover:bg-white/10" href="/app">
-              Overview
-            </Link>
-            <Link
-              className="rounded-2xl px-4 py-3 transition hover:bg-white/10"
-              href="/app/projects"
-            >
-              Projects
-            </Link>
-            <Link
-              className="rounded-2xl px-4 py-3 transition hover:bg-white/10"
-              href="/app/settings"
-            >
-              Settings
-            </Link>
-            <Link
-              className="rounded-2xl px-4 py-3 transition hover:bg-white/10"
-              href="/app/admin/users"
-            >
-              Admin
-            </Link>
+            {navigationItems.map((item) => (
+              <Link
+                className="rounded-2xl px-4 py-3 transition hover:bg-white/10"
+                data-testid={`sidebar-nav-${item.label.toLowerCase()}`}
+                href={item.href}
+                key={item.href}
+              >
+                {item.label}
+              </Link>
+            ))}
           </nav>
           <div className="mt-8">
             <Link href="/" className="mb-3 block text-xs uppercase tracking-[0.3em] text-slate-500">

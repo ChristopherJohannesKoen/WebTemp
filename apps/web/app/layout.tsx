@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { IBM_Plex_Sans, Space_Grotesk } from 'next/font/google';
+import { connection } from 'next/server';
 import './globals.css';
 
 const bodyFont = IBM_Plex_Sans({
@@ -16,10 +17,13 @@ const displayFont = Space_Grotesk({
 
 export const metadata: Metadata = {
   title: 'Ultimate Website Template',
-  description: 'A Docker-first, app-first SaaS starter with auth, RBAC, and Projects CRUD.'
+  description:
+    'A hardened, Docker-first SaaS template with auth, RBAC, session security, and Projects CRUD.'
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  await connection();
+
   return (
     <html lang="en">
       <body className={`${bodyFont.variable} ${displayFont.variable} font-sans`}>{children}</body>

@@ -9,11 +9,13 @@
 
 ## Production Checklist
 
-1. Set production `APP_URL`, `API_ORIGIN`, `DATABASE_URL`, and `SESSION_SECRET`.
+1. Set production `APP_URL`, `API_ORIGIN`, `DATABASE_URL`, `SESSION_COOKIE_NAME`, and the origin policy envs.
 2. Run `npm run prisma:migrate:deploy`.
-3. Run `npm run seed` only for non-production bootstrap environments.
+3. Run `npm run seed` only for bootstrap environments where the initial owner must be provisioned.
 4. Build and publish `api` and `web` images from GitHub Actions.
-5. Expose `/api/health` for health checks.
+5. Expose `/api/health` for health checks and `/api/metrics` for Prometheus scraping.
+6. Keep `EXPOSE_DEV_RESET_DETAILS=false` in every deployed environment.
+7. Enable `FEATURE_OBSERVABILITY=true` only when `OTEL_EXPORTER_OTLP_ENDPOINT` is configured and reachable.
 
 ## CI/CD
 
@@ -24,5 +26,9 @@
 ## Notes
 
 - The default template is single-tenant.
-- Password reset email delivery is intentionally left as an extension point.
+- Public signup creates `member` users only; owner bootstrap is a seed/setup concern.
+- Keep `ALLOW_MISSING_ORIGIN_FOR_DEV=false` in deploy environments.
+- Password reset email delivery is intentionally left as an extension point, and raw reset details should remain hidden unless you explicitly opt in for local/test workflows.
+- Idempotency cleanup runs off the request path on a bounded schedule and should be monitored through logs and `ultimate_template_idempotency_expired_backlog`.
+- Optional observability services are available through the `prometheus` and `grafana` compose profiles.
 - Redis, object storage, and reverse proxy components are optional and profile-driven.

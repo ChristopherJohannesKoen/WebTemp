@@ -1,15 +1,25 @@
 import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import type { User } from '@prisma/client';
+import { Prisma, type User } from '@prisma/client';
 import argon2 from 'argon2';
 import { createHash, randomBytes } from 'node:crypto';
 import type { SessionUser } from '@packages/shared';
+import type { AuthenticatedSession } from '../../common/types/authenticated-request';
+import { readBooleanConfig } from '../../common/config/boolean-config';
+import {
+  canExposeResetDetails,
+  normalizeAppEnvironment
+} from '../../common/config/app-environment';
+import { publicUserSelect, type PublicUserRecord } from '../../common/prisma/public-selects';
 import { AuditService } from '../audit/audit.service';
+import { MetricsService } from '../observability/metrics.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { normalizeDisplayName, normalizeEmail } from './auth.helpers';
 import type { ForgotPasswordDto } from './dto/forgot-password.dto';
 import type { LoginDto } from './dto/login.dto';
 import type { ResetPasswordDto } from './dto/reset-password.dto';
 import type { SignupDto } from './dto/signup.dto';
+import { SessionService } from './session.service';
 
 type SessionMetadata = {
   ipAddress?: string | null;
@@ -18,52 +28,55 @@ type SessionMetadata = {
 
 @Injectable()
 export class AuthService {
-  private readonly sessionLifetimeMs = 1000 * 60 * 60 * 24 * 14;
-
   constructor(
     private readonly prismaService: PrismaService,
     private readonly configService: ConfigService,
-    private readonly auditService: AuditService
+    private readonly auditService: AuditService,
+    private readonly sessionService: SessionService,
+    private readonly metricsService: MetricsService
   ) {}
 
   async signUp(dto: SignupDto, metadata: SessionMetadata) {
-    const email = dto.email.trim().toLowerCase();
-    const existingUser = await this.prismaService.user.findUnique({
-      where: { email }
-    });
+    const email = normalizeEmail(dto.email);
 
-    if (existingUser) {
-      throw new ConflictException('An account with this email already exists.');
-    }
+    try {
+      const user = await this.prismaService.user.create({
+        data: {
+          email,
+          name: normalizeDisplayName(dto.name),
+          role: 'member',
+          passwordHash: await this.hashPassword(dto.password)
+        },
+        select: publicUserSelect
+      });
 
-    const role = (await this.prismaService.user.count()) === 0 ? 'owner' : 'member';
-    const user = await this.prismaService.user.create({
-      data: {
-        email,
-        name: dto.name.trim(),
-        role,
-        passwordHash: await this.hashPassword(dto.password)
+      await this.auditService.log({
+        actorId: user.id,
+        action: 'auth.signup',
+        targetType: 'user',
+        targetId: user.id,
+        metadata: { role: user.role }
+      });
+      this.metricsService.recordAuthEvent('signup_success');
+
+      return this.createAuthResult(user, metadata);
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new ConflictException('An account with this email already exists.');
       }
-    });
 
-    await this.auditService.log({
-      actorId: user.id,
-      action: 'auth.signup',
-      targetType: 'user',
-      targetId: user.id,
-      metadata: { role }
-    });
-
-    return this.createAuthResult(user, metadata);
+      throw error;
+    }
   }
 
   async login(dto: LoginDto, metadata: SessionMetadata) {
-    const email = dto.email.trim().toLowerCase();
+    const email = normalizeEmail(dto.email);
     const user = await this.prismaService.user.findUnique({
       where: { email }
     });
 
     if (!user || !(await argon2.verify(user.passwordHash, dto.password))) {
+      this.metricsService.recordAuthEvent('login_failure');
       throw new UnauthorizedException('Invalid email or password.');
     }
 
@@ -74,6 +87,7 @@ export class AuthService {
       targetId: user.id,
       metadata: { ipAddress: metadata.ipAddress ?? null }
     });
+    this.metricsService.recordAuthEvent('login_success');
 
     return this.createAuthResult(user, metadata);
   }
@@ -83,11 +97,10 @@ export class AuthService {
       return;
     }
 
-    await this.prismaService.session.deleteMany({
-      where: { tokenHash: this.hashToken(sessionToken) }
-    });
+    await this.sessionService.destroySession(sessionToken);
 
     if (actorId) {
+      this.metricsService.recordAuthEvent('logout');
       await this.auditService.log({
         actorId,
         action: 'auth.logout',
@@ -97,14 +110,58 @@ export class AuthService {
     }
   }
 
+  async logoutAll(currentUser: SessionUser) {
+    await this.sessionService.destroyAllSessions(currentUser.id);
+    this.metricsService.recordAuthEvent('logout_all');
+
+    await this.auditService.log({
+      actorId: currentUser.id,
+      action: 'auth.logout_all',
+      targetType: 'user',
+      targetId: currentUser.id
+    });
+
+    return { ok: true };
+  }
+
+  async listSessions(currentUser: SessionUser, currentSessionId?: string) {
+    return this.sessionService.listSessions(currentUser, currentSessionId);
+  }
+
+  async revokeSession(currentUser: SessionUser, sessionId: string, currentSessionId?: string) {
+    const result = await this.sessionService.revokeSession(
+      currentUser,
+      sessionId,
+      currentSessionId
+    );
+
+    await this.auditService.log({
+      actorId: currentUser.id,
+      action: 'auth.session_revoked',
+      targetType: 'session',
+      targetId: sessionId,
+      metadata: {
+        revokedCurrent: result.revokedCurrent
+      }
+    });
+    this.metricsService.recordAuthEvent('session_revoked');
+
+    return result;
+  }
+
   async requestPasswordReset(dto: ForgotPasswordDto) {
-    const email = dto.email.trim().toLowerCase();
+    const email = normalizeEmail(dto.email);
     const user = await this.prismaService.user.findUnique({
-      where: { email }
+      where: { email },
+      select: {
+        id: true,
+        email: true
+      }
     });
 
     const message =
       'If the account exists, a password reset link has been generated for this environment.';
+    this.metricsService.recordAuthEvent('password_reset_requested');
 
     if (!user) {
       return { message };
@@ -128,10 +185,11 @@ export class AuthService {
       targetId: user.id
     });
 
-    if (this.configService.get<string>('NODE_ENV') === 'production') {
+    if (!this.shouldExposeResetDetails()) {
       return { message };
     }
 
+    this.metricsService.recordAuthEvent('password_reset_details_exposed');
     const appUrl = this.configService.get<string>('APP_URL', 'http://localhost:3000');
 
     return {
@@ -161,7 +219,8 @@ export class AuthService {
 
       const updatedUser = await transaction.user.update({
         where: { id: tokenRecord.userId },
-        data: { passwordHash }
+        data: { passwordHash },
+        select: publicUserSelect
       });
 
       await transaction.session.deleteMany({
@@ -177,82 +236,54 @@ export class AuthService {
       targetType: 'user',
       targetId: user.id
     });
+    this.metricsService.recordAuthEvent('password_reset_completed');
 
     return this.createAuthResult(user, metadata);
   }
 
-  async getSessionUserFromToken(rawToken: string): Promise<SessionUser | undefined> {
-    const session = await this.prismaService.session.findUnique({
-      where: { tokenHash: this.hashToken(rawToken) },
-      include: { user: true }
-    });
+  async issueCsrfToken(sessionId: string) {
+    return this.sessionService.issueCsrfToken(sessionId);
+  }
 
-    if (!session) {
-      return undefined;
-    }
+  assertCsrfToken(session: AuthenticatedSession | undefined, rawToken: string | undefined) {
+    return this.sessionService.assertCsrfToken(session, rawToken);
+  }
 
-    if (session.expiresAt < new Date()) {
-      await this.prismaService.session.delete({ where: { id: session.id } });
-      return undefined;
-    }
+  async getSessionContextFromToken(rawToken: string, metadata: SessionMetadata) {
+    return this.sessionService.resolveSessionContext(rawToken, metadata);
+  }
 
-    await this.prismaService.session.update({
-      where: { id: session.id },
-      data: { lastUsedAt: new Date() }
-    });
-
-    return this.toSessionUser(session.user);
+  async getSessionUserFromToken(rawToken: string) {
+    return this.sessionService.resolveSessionUser(rawToken);
   }
 
   getCookieOptions(expiresAt: Date) {
-    const isProduction = this.configService.get<string>('NODE_ENV') === 'production';
+    return this.sessionService.getCookieOptions(expiresAt);
+  }
 
-    return {
-      httpOnly: true,
-      sameSite: 'lax' as const,
-      secure: isProduction,
-      expires: expiresAt,
-      path: '/'
-    };
+  getClearCookieOptions() {
+    return this.sessionService.getClearCookieOptions();
   }
 
   getCookieName() {
-    return this.configService.get<string>('SESSION_COOKIE_NAME', 'ultimate_template_session');
+    return this.sessionService.getCookieName();
   }
 
-  private async createAuthResult(user: User, metadata: SessionMetadata) {
-    const { token, expiresAt } = await this.createSession(user.id, metadata);
+  private async createAuthResult(
+    user: Pick<User, 'id' | 'email' | 'name' | 'role'> | PublicUserRecord,
+    metadata: SessionMetadata
+  ) {
+    const { token, expiresAt } = await this.sessionService.createSession(user.id, metadata);
 
     return {
-      user: this.toSessionUser(user),
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role
+      },
       token,
       expiresAt
-    };
-  }
-
-  private async createSession(userId: string, metadata: SessionMetadata) {
-    const token = this.generateToken();
-    const expiresAt = new Date(Date.now() + this.sessionLifetimeMs);
-
-    await this.prismaService.session.create({
-      data: {
-        tokenHash: this.hashToken(token),
-        userId,
-        expiresAt,
-        ipAddress: metadata.ipAddress ?? null,
-        userAgent: metadata.userAgent ?? null
-      }
-    });
-
-    return { token, expiresAt };
-  }
-
-  private toSessionUser(user: User): SessionUser {
-    return {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      role: user.role
     };
   }
 
@@ -269,5 +300,19 @@ export class AuthService {
 
   private generateToken() {
     return randomBytes(32).toString('hex');
+  }
+
+  private shouldExposeResetDetails() {
+    const nodeEnvironment = this.configService.get<string>('NODE_ENV', 'development');
+    const appEnvironment = normalizeAppEnvironment(
+      this.configService.get<string>('APP_ENV'),
+      nodeEnvironment
+    );
+    const exposeDevResetDetails = readBooleanConfig(
+      this.configService.get<string | boolean>('EXPOSE_DEV_RESET_DETAILS', false),
+      false
+    );
+
+    return exposeDevResetDetails && canExposeResetDetails(appEnvironment);
   }
 }

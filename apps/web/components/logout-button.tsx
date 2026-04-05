@@ -3,8 +3,8 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Button } from '@packages/ui';
+import { logout } from '../lib/client-api';
 import { toApiError } from '../lib/api-error';
-import { clientApiRequest } from '../lib/client-api';
 
 export function LogoutButton() {
   const router = useRouter();
@@ -16,12 +16,9 @@ export function LogoutButton() {
     setError(undefined);
 
     try {
-      await clientApiRequest('/api/auth/logout', {
-        method: 'POST'
-      });
+      await logout();
 
       router.push('/login');
-      router.refresh();
     } catch (caughtError) {
       setError(toApiError(caughtError).message);
     } finally {
@@ -31,10 +28,20 @@ export function LogoutButton() {
 
   return (
     <div className="grid gap-2">
-      <Button className="w-full" onClick={handleLogout} type="button" variant="secondary">
+      <Button
+        className="w-full"
+        data-testid="sidebar-sign-out"
+        onClick={handleLogout}
+        type="button"
+        variant="secondary"
+      >
         {pending ? 'Signing out...' : 'Sign out'}
       </Button>
-      {error ? <p className="text-xs text-rose-300">{error}</p> : null}
+      {error ? (
+        <p className="text-xs text-rose-300" data-testid="sidebar-sign-out-error">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }
