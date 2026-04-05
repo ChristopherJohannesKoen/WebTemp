@@ -1,0 +1,36 @@
+{
+  "name": "@nestjs/swagger",
+  "version": "11.2.6",
+  "description": "Nest - modern, fast, powerful node.js web framework (@swagger)",
+  "license": "MIT",
+  "repository": "https://github.com/nestjs/swagger",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "dependencies": {
+    "@microsoft/tsdoc": "0.16.0",
+    "@nestjs/mapped-types": "2.1.0",
+    "js-yaml": "4.1.1",
+    "lodash": "4.18.1",
+    "path-to-regexp": "8.4.2",
+    "swagger-ui-dist": "5.31.0"
+  },
+  "peerDependencies": {
+    "@fastify/static": "^8.0.0 || ^9.0.0",
+    "@nestjs/common": "^11.0.1",
+    "@nestjs/core": "^11.0.1",
+    "class-transformer": "*",
+    "class-validator": "*",
+    "reflect-metadata": "^0.1.12 || ^0.2.0"
+  },
+  "peerDependenciesMeta": {
+    "@fastify/static": {
+      "optional": true
+    },
+    "class-transformer": {
+      "optional": true
+    },
+    "class-validator": {
+      "optional": true
+    }
+  }
+}

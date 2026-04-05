@@ -13,17 +13,17 @@
     "prisma:migrate:deploy": "prisma migrate deploy --schema ../../packages/db/prisma/schema.prisma"
   },
   "dependencies": {
-    "@packages/contracts": "file:../../packages/contracts",
-    "@nestjs/common": "^11.1.17",
-    "@nestjs/config": "^4.0.2",
-    "@nestjs/core": "^11.1.17",
-    "@nestjs/platform-express": "^11.1.17",
+    "@nestjs/common": "^11.1.18",
+    "@nestjs/config": "file:../../vendor/nestjs-config",
+    "@nestjs/core": "^11.1.18",
+    "@nestjs/platform-express": "^11.1.18",
     "@nestjs/schedule": "^5.0.1",
-    "@nestjs/swagger": "^11.2.6",
+    "@nestjs/swagger": "file:../../vendor/nestjs-swagger",
     "@nestjs/throttler": "^6.4.0",
     "@opentelemetry/auto-instrumentations-node": "^0.66.0",
     "@opentelemetry/exporter-trace-otlp-http": "^0.206.0",
     "@opentelemetry/sdk-node": "^0.206.0",
+    "@packages/contracts": "file:../../packages/contracts",
     "@prisma/client": "^6.6.0",
     "@ts-rest/nest": "^3.52.1",
     "argon2": "^0.41.1",
@@ -39,7 +39,7 @@
     "winston": "^3.17.0"
   },
   "devDependencies": {
-    "@nestjs/testing": "^11.1.17",
+    "@nestjs/testing": "^11.1.18",
     "@types/cookie-parser": "^1.4.8",
     "@types/express": "^5.0.1",
     "@types/node": "^22.15.2",
