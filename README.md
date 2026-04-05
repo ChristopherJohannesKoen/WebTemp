@@ -115,6 +115,7 @@ packages/
 docs/
   architecture.md
   code-critique.md
+  reference-baseline.md
   environment.md
   local-development.md
   deployment.md
@@ -140,6 +141,7 @@ The default template keeps the runtime small: web, API, and Postgres only. Optio
 
 ## Docs
 
+- [Reference Baseline](docs/reference-baseline.md)
 - [Architecture](docs/architecture.md)
 - [Code Critique](docs/code-critique.md)
 - [Environment Catalog](docs/environment.md)
@@ -153,3 +155,10 @@ The default template keeps the runtime small: web, API, and Postgres only. Optio
 - [Template Conventions](docs/template-conventions.md)
 - [ADR 001](docs/adrs/001-template-scope.md)
 - [Customization Checklist](docs/customization-checklist.md)
+
+## Built From
+
+This template was shaped against the curated local research set in
+[`references/`](references), not copied from a single starter. The detailed map
+of direct donors, validation references, and intentionally unadopted patterns
+is in [Reference Baseline](docs/reference-baseline.md).
