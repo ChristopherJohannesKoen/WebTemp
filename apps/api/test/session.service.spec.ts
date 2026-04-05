@@ -20,6 +20,17 @@ function createMetricsService() {
   };
 }
 
+function createSecretService() {
+  return {
+    getRequiredSecret: vi.fn((key: string) =>
+      key === 'SESSION_COOKIE_ENCRYPTION_KEY'
+        ? '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
+        : ''
+    ),
+    getOptionalSecret: vi.fn()
+  };
+}
+
 describe('SessionService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -59,7 +70,8 @@ describe('SessionService', () => {
         SESSION_ROTATION_MS: '1',
         SESSION_TOUCH_INTERVAL_MS: '1'
       }) as never,
-      metricsService as never
+      metricsService as never,
+      createSecretService() as never
     );
 
     const [firstResult, secondResult] = await Promise.all([
@@ -83,7 +95,8 @@ describe('SessionService', () => {
     const service = new SessionService(
       {} as never,
       createConfigService() as never,
-      createMetricsService() as never
+      createMetricsService() as never,
+      createSecretService() as never
     );
 
     const rawToken = 'raw-session-token';

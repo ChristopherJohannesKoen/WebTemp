@@ -5,6 +5,7 @@ import type {
   ProjectListQuery,
   ProjectListResponse,
   SessionListResponse,
+  SsoProvidersResponse,
   UserListQuery,
   UserListResponse,
   UserSummary
@@ -82,6 +83,10 @@ export async function getCurrentUser() {
 
     throw error;
   }
+}
+
+export function getSsoProviders() {
+  return executeServerRequest<SsoProvidersResponse>(() => serverClient.auth.ssoProviders(), [200]);
 }
 
 export async function requireCurrentUser() {

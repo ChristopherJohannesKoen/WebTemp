@@ -1,12 +1,18 @@
 import { redirect } from 'next/navigation';
 import { SignUpForm } from '../../components/sign-up-form';
-import { getCurrentUser } from '../../lib/server-api';
+import { getCurrentUser, getSsoProviders } from '../../lib/server-api';
 
 export default async function SignupPage() {
   const currentUser = await getCurrentUser();
 
   if (currentUser) {
     redirect('/app');
+  }
+
+  const ssoProviders = await getSsoProviders();
+
+  if (!ssoProviders.localAuthEnabled) {
+    redirect('/login');
   }
 
   return (

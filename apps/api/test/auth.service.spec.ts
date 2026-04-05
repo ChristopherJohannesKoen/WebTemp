@@ -24,8 +24,20 @@ function createMetricsService() {
     recordSessionEvent: vi.fn(),
     recordSecurityEvent: vi.fn(),
     recordOwnershipEvent: vi.fn(),
+    recordIdentityEvent: vi.fn(),
     recordIdempotencyEvent: vi.fn(),
     observeIdempotencyCleanup: vi.fn()
+  };
+}
+
+function createSecretService() {
+  return {
+    getRequiredSecret: vi.fn((key: string) =>
+      key === 'SESSION_COOKIE_ENCRYPTION_KEY'
+        ? '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
+        : ''
+    ),
+    getOptionalSecret: vi.fn()
   };
 }
 
@@ -48,7 +60,8 @@ function createAuthService(
   const sessionService = new SessionService(
     prismaService as never,
     configService as never,
-    metricsService as never
+    metricsService as never,
+    createSecretService() as never
   );
 
   return {
@@ -219,6 +232,147 @@ describe('AuthService', () => {
     ).rejects.toBeInstanceOf(UnauthorizedException);
   });
 
+  it('rejects local login when enterprise identity is enforced', async () => {
+    const { authService: service } = createAuthService(
+      {
+        user: {
+          findUnique: vi.fn()
+        }
+      },
+      {
+        NODE_ENV: 'production',
+        APP_ENV: 'production',
+        ENTERPRISE_IDENTITY_ENABLED: 'true'
+      },
+      auditService
+    );
+
+    await expect(
+      service.login(
+        {
+          email: 'member@example.com',
+          password: 'password123'
+        },
+        {}
+      )
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('allows audited break-glass login for an owner when explicitly enabled', async () => {
+    const passwordHash = await argon2.hash('ChangeMe123!', {
+      type: argon2.argon2id,
+      memoryCost: 1024
+    });
+    const prismaService = withSessionTransaction({
+      user: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'user_owner',
+          email: 'owner@example.com',
+          name: 'Owner User',
+          role: 'owner',
+          disabledAt: null,
+          passwordHash
+        })
+      },
+      session: {
+        create: vi.fn().mockResolvedValue(undefined),
+        findMany: vi.fn().mockResolvedValue([]),
+        deleteMany: vi.fn().mockResolvedValue({ count: 0 })
+      }
+    });
+
+    const { authService: service, metricsService } = createAuthService(
+      prismaService,
+      {
+        NODE_ENV: 'production',
+        APP_ENV: 'production',
+        ENTERPRISE_IDENTITY_ENABLED: 'true',
+        BREAK_GLASS_LOCAL_LOGIN_ENABLED: 'true'
+      },
+      auditService
+    );
+
+    const result = await service.breakGlassLogin(
+      {
+        email: 'owner@example.com',
+        password: 'ChangeMe123!'
+      },
+      {}
+    );
+
+    expect(result.user.role).toBe('owner');
+    expect(metricsService.recordAuthEvent).toHaveBeenCalledWith('break_glass_login');
+    expect(auditService.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'auth.break_glass_login',
+        authMechanism: 'break_glass'
+      })
+    );
+  });
+
+  it('records a privileged step-up window for owners', async () => {
+    const passwordHash = await argon2.hash('ChangeMe123!', {
+      type: argon2.argon2id,
+      memoryCost: 1024
+    });
+    const prismaService = {
+      user: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'user_owner',
+          email: 'owner@example.com',
+          name: 'Owner User',
+          role: 'owner',
+          passwordHash
+        })
+      }
+    };
+
+    const {
+      authService: service,
+      sessionService,
+      metricsService
+    } = createAuthService(
+      prismaService,
+      {
+        OWNER_STEP_UP_WINDOW_MS: '600000'
+      },
+      auditService
+    );
+    const markStepUpCompleted = vi
+      .spyOn(sessionService, 'markStepUpCompleted')
+      .mockResolvedValue(undefined);
+
+    const result = await service.completeStepUp(
+      {
+        id: 'user_owner',
+        email: 'owner@example.com',
+        name: 'Owner User',
+        role: 'owner'
+      },
+      {
+        id: 'session_owner',
+        userId: 'user_owner',
+        csrfTokenHash: 'csrf',
+        authMethod: 'local',
+        authReason: 'local_login',
+        identityProviderId: null,
+        externalSubject: null,
+        stepUpAt: null,
+        expiresAt: new Date(Date.now() + 60_000),
+        createdAt: new Date(),
+        lastUsedAt: new Date(),
+        lastRotatedAt: new Date(),
+        ipAddress: null,
+        userAgent: null
+      },
+      'ChangeMe123!'
+    );
+
+    expect(result.ok).toBe(true);
+    expect(markStepUpCompleted).toHaveBeenCalledWith('session_owner', expect.any(Date));
+    expect(metricsService.recordAuthEvent).toHaveBeenCalledWith('step_up_completed');
+  });
+
   it('returns a reset link only when explicitly enabled for non-production environments', async () => {
     const prismaService = {
       user: {
@@ -338,6 +492,11 @@ describe('AuthService', () => {
           id: 'session_1',
           userId: 'user_member',
           csrfTokenHash: 'invalid',
+          authMethod: 'local',
+          authReason: 'local_login',
+          identityProviderId: null,
+          externalSubject: null,
+          stepUpAt: null,
           expiresAt: new Date(),
           createdAt: new Date(),
           lastUsedAt: new Date(),

@@ -12,12 +12,15 @@ import { MetricsService } from '../observability/metrics.service';
 import { PrismaService } from '../prisma/prisma.service';
 import type { ListUsersDto } from './dto/list-users.dto';
 import type { UpdateRoleDto } from './dto/update-role.dto';
+import type { AuthenticatedSession } from '../../common/types/authenticated-request';
 
 const OWNER_FLOOR_CODE = 'owner_floor_violation';
 const ROLE_CONFLICT_CODE = 'role_conflict';
 const OWNER_FLOOR_MESSAGE = 'At least one owner must remain assigned.';
 const ROLE_CONFLICT_MESSAGE =
   'Could not complete the owner-sensitive role update because a concurrent change was detected.';
+const STEP_UP_REQUIRED_CODE = 'step_up_required';
+const STEP_UP_REQUIRED_MESSAGE = 'A recent owner confirmation is required before changing roles.';
 
 function isSerializableConflict(error: unknown) {
   return Boolean(
@@ -61,7 +64,12 @@ export class AdminService {
     };
   }
 
-  async updateRole(actor: SessionUser, targetId: string, dto: UpdateRoleDto) {
+  async updateRole(
+    actor: SessionUser,
+    actorSession: AuthenticatedSession,
+    targetId: string,
+    dto: UpdateRoleDto
+  ) {
     if (actor.role !== 'owner') {
       throw new ForbiddenException('Only the owner can change roles.');
     }
@@ -90,6 +98,10 @@ export class AdminService {
 
             if (!target) {
               throw new NotFoundException('User not found.');
+            }
+
+            if (this.isOwnerSensitiveRoleChange(target.role, dto.role)) {
+              this.assertOwnerStepUp(actorSession);
             }
 
             if (target.id === actor.id && dto.role !== 'owner') {
@@ -221,5 +233,23 @@ export class AdminService {
       message: ROLE_CONFLICT_MESSAGE,
       code: ROLE_CONFLICT_CODE
     });
+  }
+
+  private assertOwnerStepUp(session: AuthenticatedSession) {
+    if (session.stepUpAt && session.stepUpAt.getTime() > Date.now()) {
+      return;
+    }
+
+    throw new ForbiddenException({
+      message: STEP_UP_REQUIRED_MESSAGE,
+      code: STEP_UP_REQUIRED_CODE
+    });
+  }
+
+  private isOwnerSensitiveRoleChange(
+    currentRole: SessionUser['role'],
+    nextRole: SessionUser['role']
+  ) {
+    return currentRole === 'owner' || nextRole === 'owner';
   }
 }

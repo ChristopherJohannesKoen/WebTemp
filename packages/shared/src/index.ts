@@ -3,18 +3,60 @@ import { z } from 'zod';
 export const RoleSchema = z.enum(['owner', 'admin', 'member']);
 export type Role = z.infer<typeof RoleSchema>;
 
+export const IdentityProviderTypeSchema = z.enum(['oidc', 'saml']);
+export type IdentityProviderType = z.infer<typeof IdentityProviderTypeSchema>;
+
+export const IdentityProviderStatusSchema = z.enum(['staged', 'active', 'disabled']);
+export type IdentityProviderStatus = z.infer<typeof IdentityProviderStatusSchema>;
+
+export const SessionAuthMethodSchema = z.enum(['local', 'oidc', 'saml', 'break_glass']);
+export type SessionAuthMethod = z.infer<typeof SessionAuthMethodSchema>;
+
+export const SessionAuthReasonSchema = z.enum([
+  'local_login',
+  'oidc_login',
+  'saml_login',
+  'password_reset',
+  'break_glass'
+]);
+export type SessionAuthReason = z.infer<typeof SessionAuthReasonSchema>;
+
+export const AuditEventCategorySchema = z.enum([
+  'application',
+  'authentication',
+  'provisioning',
+  'authorization',
+  'configuration',
+  'export',
+  'security'
+]);
+export type AuditEventCategory = z.infer<typeof AuditEventCategorySchema>;
+
+export const AuditOutcomeSchema = z.enum(['success', 'denied', 'failure']);
+export type AuditOutcome = z.infer<typeof AuditOutcomeSchema>;
+
 export const ProjectStatusSchema = z.enum(['active', 'paused', 'completed']);
 export type ProjectStatus = z.infer<typeof ProjectStatusSchema>;
 
 export const AuditActionSchema = z.enum([
   'auth.signup',
   'auth.login',
+  'auth.break_glass_login',
+  'auth.step_up_completed',
+  'auth.sso_login',
+  'auth.sso_provider_started',
+  'auth.sso_provider_callback',
   'auth.logout',
   'auth.session_revoked',
   'auth.logout_all',
   'auth.password_reset_requested',
   'auth.password_reset_completed',
   'authz.denied',
+  'identity.provider_upserted',
+  'identity.group_mapping_applied',
+  'identity.scim_user_provisioned',
+  'identity.scim_group_provisioned',
+  'governance.retention_cleanup',
   'user.profile_updated',
   'user.role_updated',
   'project.created',
@@ -25,11 +67,22 @@ export const AuditActionSchema = z.enum([
 ]);
 export type AuditAction = z.infer<typeof AuditActionSchema>;
 
+export const IdentityProviderSummarySchema = z.object({
+  slug: z.string(),
+  displayName: z.string(),
+  type: IdentityProviderTypeSchema,
+  status: IdentityProviderStatusSchema.default('active')
+});
+export type IdentityProviderSummary = z.infer<typeof IdentityProviderSummarySchema>;
+
 export const SessionUserSchema = z.object({
   id: z.string(),
   email: z.string().email(),
   name: z.string(),
-  role: RoleSchema
+  role: RoleSchema,
+  disabledAt: z.string().nullable().optional(),
+  provisionedBy: IdentityProviderTypeSchema.nullable().optional(),
+  identityProvider: IdentityProviderSummarySchema.nullable().optional()
 });
 export type SessionUser = z.infer<typeof SessionUserSchema>;
 
@@ -86,6 +139,13 @@ export const AuthResponseSchema = z.object({
 });
 export type AuthResponse = z.infer<typeof AuthResponseSchema>;
 
+export const SsoProvidersResponseSchema = z.object({
+  providers: z.array(IdentityProviderSummarySchema),
+  localAuthEnabled: z.boolean(),
+  breakGlassEnabled: z.boolean()
+});
+export type SsoProvidersResponse = z.infer<typeof SsoProvidersResponseSchema>;
+
 export const OkResponseSchema = z.object({
   ok: z.literal(true)
 });
@@ -102,6 +162,20 @@ export const ForgotPasswordResponseSchema = z.object({
   resetUrl: z.string().url().optional()
 });
 export type ForgotPasswordResponse = z.infer<typeof ForgotPasswordResponseSchema>;
+
+export const BreakGlassLoginPayloadSchema = AuthPayloadSchema;
+export type BreakGlassLoginPayload = z.infer<typeof BreakGlassLoginPayloadSchema>;
+
+export const StepUpPayloadSchema = z.object({
+  password: z.string().min(8)
+});
+export type StepUpPayload = z.infer<typeof StepUpPayloadSchema>;
+
+export const StepUpResponseSchema = z.object({
+  ok: z.literal(true),
+  stepUpExpiresAt: z.string()
+});
+export type StepUpResponse = z.infer<typeof StepUpResponseSchema>;
 
 export const UpdateProfilePayloadSchema = z.object({
   name: z.string().trim().min(2).max(80)
@@ -138,6 +212,10 @@ export const SessionSummarySchema = z.object({
   id: z.string(),
   ipAddress: z.string().nullable(),
   userAgent: z.string().nullable(),
+  authMethod: SessionAuthMethodSchema,
+  authReason: SessionAuthReasonSchema,
+  identityProvider: IdentityProviderSummarySchema.nullable(),
+  stepUpAt: z.string().nullable(),
   createdAt: z.string(),
   lastUsedAt: z.string(),
   expiresAt: z.string(),
@@ -215,3 +293,62 @@ export const UserListQuerySchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(100).default(20)
 });
 export type UserListQuery = z.infer<typeof UserListQuerySchema>;
+
+export const ScimSchemasSchema = z
+  .array(z.string())
+  .default(['urn:ietf:params:scim:schemas:core:2.0:User']);
+export type ScimSchemas = z.infer<typeof ScimSchemasSchema>;
+
+export const ScimEmailSchema = z.object({
+  value: z.string().email(),
+  primary: z.boolean().optional()
+});
+export type ScimEmail = z.infer<typeof ScimEmailSchema>;
+
+export const ScimNameSchema = z.object({
+  givenName: z.string().optional(),
+  familyName: z.string().optional()
+});
+export type ScimName = z.infer<typeof ScimNameSchema>;
+
+export const ScimGroupRefSchema = z.object({
+  value: z.string(),
+  display: z.string().optional()
+});
+export type ScimGroupRef = z.infer<typeof ScimGroupRefSchema>;
+
+export const ScimUserSchema = z.object({
+  schemas: z.array(z.string()).default(['urn:ietf:params:scim:schemas:core:2.0:User']),
+  id: z.string().optional(),
+  externalId: z.string().optional(),
+  userName: z.string().email(),
+  active: z.boolean().default(true),
+  name: ScimNameSchema.optional(),
+  displayName: z.string().optional(),
+  emails: z.array(ScimEmailSchema).default([]),
+  groups: z.array(ScimGroupRefSchema).default([])
+});
+export type ScimUser = z.infer<typeof ScimUserSchema>;
+
+export const ScimGroupSchema = z.object({
+  schemas: z.array(z.string()).default(['urn:ietf:params:scim:schemas:core:2.0:Group']),
+  id: z.string().optional(),
+  externalId: z.string(),
+  displayName: z.string(),
+  members: z.array(ScimGroupRefSchema).default([])
+});
+export type ScimGroup = z.infer<typeof ScimGroupSchema>;
+
+export const ScimListResponseSchema = <T extends z.ZodTypeAny>(resourceSchema: T) =>
+  z.object({
+    totalResults: z.number().int().min(0),
+    startIndex: z.number().int().min(1).default(1),
+    itemsPerPage: z.number().int().min(0),
+    Resources: z.array(resourceSchema)
+  });
+
+export const ScimUserListResponseSchema = ScimListResponseSchema(ScimUserSchema);
+export type ScimUserListResponse = z.infer<typeof ScimUserListResponseSchema>;
+
+export const ScimGroupListResponseSchema = ScimListResponseSchema(ScimGroupSchema);
+export type ScimGroupListResponse = z.infer<typeof ScimGroupListResponseSchema>;

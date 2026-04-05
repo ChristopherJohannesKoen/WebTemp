@@ -22,6 +22,7 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { SignupDto } from './dto/signup.dto';
+import { StepUpDto } from './dto/step-up.dto';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -56,6 +57,24 @@ export class AuthController {
     @Res({ passthrough: true }) response: Response
   ) {
     const result = await this.authService.login(dto, {
+      ipAddress: request.ip,
+      userAgent: request.header('user-agent')
+    });
+
+    this.applySessionCookie(response, result.token, result.expiresAt);
+
+    return { user: result.user };
+  }
+
+  @Post('break-glass/login')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Create an audited break-glass session for emergency owner access' })
+  async breakGlassLogin(
+    @Body() dto: LoginDto,
+    @Req() request: AuthenticatedRequest,
+    @Res({ passthrough: true }) response: Response
+  ) {
+    const result = await this.authService.breakGlassLogin(dto, {
       ipAddress: request.ip,
       userAgent: request.header('user-agent')
     });
@@ -157,12 +176,27 @@ export class AuthController {
     const user = await this.authService.completePasswordReset(dto);
     const session = await this.authService.issueSessionForUser(user.id, {
       ipAddress: request.ip,
-      userAgent: request.header('user-agent')
+      userAgent: request.header('user-agent'),
+      authMethod: 'local',
+      authReason: 'password_reset'
     });
 
     this.applySessionCookie(response, session.token, session.expiresAt);
 
     return { user };
+  }
+
+  @Post('step-up')
+  @HttpCode(200)
+  @UseGuards(SessionGuard)
+  @ApiCookieAuth()
+  @ApiOperation({ summary: 'Require a fresh owner confirmation before a privileged action' })
+  stepUp(
+    @CurrentUser() currentUser: NonNullable<AuthenticatedRequest['currentUser']>,
+    @Req() request: AuthenticatedRequest,
+    @Body() dto: StepUpDto
+  ) {
+    return this.authService.completeStepUp(currentUser, request.currentSession!, dto.password);
   }
 
   @Post('logout-all')

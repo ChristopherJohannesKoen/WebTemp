@@ -60,7 +60,7 @@ describe('auth forms', () => {
   it('renders persistent polite live regions across auth forms', async () => {
     render(
       <div>
-        <SignInForm />
+        <SignInForm breakGlassEnabled={false} localAuthEnabled providers={[]} />
         <SignUpForm />
         <ForgotPasswordForm />
         <ResetPasswordForm />
@@ -78,7 +78,9 @@ describe('auth forms', () => {
   });
 
   it('passes automated axe checks for the sign-in form', async () => {
-    const { container } = render(<SignInForm />);
+    const { container } = render(
+      <SignInForm breakGlassEnabled={false} localAuthEnabled providers={[]} />
+    );
 
     const results = await axe.run(container, {
       rules: {

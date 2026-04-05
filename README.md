@@ -6,6 +6,7 @@ An opinionated full-stack SaaS template for teams that want to start from a hard
 
 - `apps/web`: Next.js 15 App Router, Tailwind, shared UI package, nonce-based CSP with staged report-only rollout support, strict browser security headers, and server-side `/api/*` proxying
 - `apps/api`: NestJS 11, Prisma, Postgres, Swagger, session-cookie auth, CSRF protection, idempotency, RBAC, rate limiting, audit logging
+- `apps/api`: enterprise identity support with OIDC, SAML, SCIM, break-glass login, and owner step-up confirmation
 - `apps/api`: Prometheus-compatible metrics at `/api/metrics` with optional OTLP tracing behind `FEATURE_OBSERVABILITY`
 - `packages/contracts`: shared ts-rest contract router for website-facing API calls
 - `packages/db`: shared Prisma schema, migrations, seed flow
@@ -28,6 +29,7 @@ An opinionated full-stack SaaS template for teams that want to start from a hard
 - contract-backed web/API calls through `packages/contracts` with runtime Zod validation for JSON responses and explicit non-JSON handling for export/download paths
 - accessible auth forms with polite live error regions and field-level associations
 - CI, Docker image publishing workflow, and CodeQL scanning
+- enterprise SSO, SCIM provisioning, retention-aware governance cleanup, Kubernetes deployment baseline, and release-integrity workflows for SBOM, dependency review, and image scanning
 
 ## Quick Start
 
@@ -129,6 +131,7 @@ docs/
   customization-checklist.md
 infra/
   compose/              Optional extension services
+  k8s/                  Kubernetes production baseline
 scripts/
   with-env.mjs          Shared env loader for workspace commands
 ```
@@ -152,11 +155,17 @@ The default template keeps the runtime small: web, API, and Postgres only. Optio
 - [Migrations](docs/migrations.md)
 - [Deployment Runbook](docs/deployment.md)
 - [API Contract Guide](docs/contracts.md)
+- [Enterprise Identity Guide](docs/enterprise-identity.md)
+- [Governance And Compliance Guide](docs/governance-and-compliance.md)
+- [Kubernetes Deployment Baseline](docs/kubernetes-baseline.md)
 - [Web Hardening Guide](docs/web-hardening.md)
 - [Testing And Failpoint Guide](docs/testing-and-failpoints.md)
 - [Operations Guide](docs/operations.md)
 - [Template Conventions](docs/template-conventions.md)
 - [ADR 001](docs/adrs/001-template-scope.md)
+- [ADR 002](docs/adrs/002-enterprise-identity.md)
+- [ADR 003](docs/adrs/003-kubernetes-production-baseline.md)
+- [ADR 004](docs/adrs/004-release-integrity.md)
 - [Customization Checklist](docs/customization-checklist.md)
 
 ## Built From

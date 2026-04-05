@@ -1,0 +1,10 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ultimate-template
+spec:
+  tls:
+    - hosts:
+        - app.example.com
+        - api.example.com
+      secretName: ultimate-template-production-tls

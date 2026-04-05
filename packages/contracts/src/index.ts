@@ -3,6 +3,7 @@ import {
   ApiErrorSchema,
   AuthPayloadSchema,
   AuthResponseSchema,
+  BreakGlassLoginPayloadSchema,
   CsrfResponseSchema,
   ForgotPasswordPayloadSchema,
   ForgotPasswordResponseSchema,
@@ -17,7 +18,10 @@ import {
   RevokeSessionResponseSchema,
   SessionIdParamsSchema,
   SessionListResponseSchema,
+  SsoProvidersResponseSchema,
   SignupPayloadSchema,
+  StepUpPayloadSchema,
+  StepUpResponseSchema,
   UpdateProfilePayloadSchema,
   UpdateRolePayloadSchema,
   UserIdParamsSchema,
@@ -104,6 +108,13 @@ export const apiContract = c.router(
             200: AuthResponseSchema
           }
         },
+        ssoProviders: {
+          method: 'GET',
+          path: '/sso/providers',
+          responses: {
+            200: SsoProvidersResponseSchema
+          }
+        },
         listSessions: {
           method: 'GET',
           path: '/sessions',
@@ -135,6 +146,23 @@ export const apiContract = c.router(
           headers: idempotencyHeaderSchema,
           responses: {
             200: AuthResponseSchema
+          }
+        },
+        breakGlassLogin: {
+          method: 'POST',
+          path: '/break-glass/login',
+          body: BreakGlassLoginPayloadSchema,
+          responses: {
+            200: AuthResponseSchema
+          }
+        },
+        stepUp: {
+          method: 'POST',
+          path: '/step-up',
+          body: StepUpPayloadSchema,
+          headers: csrfHeaderSchema,
+          responses: {
+            200: StepUpResponseSchema
           }
         },
         logoutAll: {

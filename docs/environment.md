@@ -20,15 +20,22 @@ For local performance validation, layer `.env.perf.example` or an untracked `.en
 | `CSP_REPORT_ONLY`                 | emit an additional strict report-only CSP header for rollout/debug validation | `false`                     |
 | `CSP_REPORT_URI`                  | optional CSP reporting target used with report-only mode                      | empty                       |
 | `SESSION_COOKIE_NAME`             | session cookie key                                                            | `ultimate_template_session` |
+| `SESSION_COOKIE_ENCRYPTION_KEY`   | 64-hex key for encrypted session-cookie transport                             | required                    |
+| `SSO_STATE_ENCRYPTION_KEY`        | optional 64-hex key for encrypted SSO state; falls back to session key        | empty                       |
 | `SESSION_ROTATION_MS`             | session token rotation window                                                 | `43200000`                  |
 | `SESSION_TOUCH_INTERVAL_MS`       | interval before authenticated requests touch session freshness                | `600000`                    |
 | `SESSION_MAX_ACTIVE`              | maximum concurrent sessions per user                                          | `5`                         |
+| `OWNER_STEP_UP_WINDOW_MS`         | freshness window for owner step-up confirmation                               | `900000`                    |
 | `ARGON2_MEMORY_COST`              | password hashing memory cost                                                  | `19456`                     |
 | `RATE_LIMIT_WINDOW_MS`            | throttle window                                                               | `60000`                     |
 | `RATE_LIMIT_MAX`                  | throttle ceiling per window                                                   | `120`                       |
 | `IDEMPOTENCY_TTL_SECONDS`         | replay window for protected POST requests                                     | `86400`                     |
 | `IDEMPOTENCY_CLEANUP_INTERVAL_MS` | interval between scheduled expired-request cleanup runs                       | `900000`                    |
 | `IDEMPOTENCY_CLEANUP_BATCH_SIZE`  | max expired idempotency rows deleted per cleanup run                          | `500`                       |
+| `AUDIT_LOG_RETENTION_DAYS`        | audit-log retention period                                                    | `365`                       |
+| `SESSION_RETENTION_DAYS`          | expired-session retention period                                              | `30`                        |
+| `PASSWORD_RESET_RETENTION_DAYS`   | password-reset-token retention period                                         | `30`                        |
+| `IDEMPOTENCY_RETENTION_DAYS`      | idempotency-record retention period                                           | `7`                         |
 | `EXPORT_SYNC_LIMIT`               | max synchronous CSV export size                                               | `5000`                      |
 | `EXPOSE_DEV_RESET_DETAILS`        | return password reset token/url in local non-prod workflows                   | `false`                     |
 
@@ -51,6 +58,50 @@ For local performance validation, layer `.env.perf.example` or an untracked `.en
 The template's initial owner is provisioned through seeding and setup flows. Public signup always creates a `member`.
 
 Bootstrap ownership is stored in a singleton `BootstrapState` row. Once established, rerunning seed data with a different `SEED_OWNER_EMAIL` fails loudly instead of silently rebinding the template owner.
+
+## Enterprise Identity Variables
+
+Enterprise identity turns on through `ENTERPRISE_IDENTITY_ENABLED=true` or by configuring an enterprise provider directly.
+
+Core toggles:
+
+- `ENTERPRISE_IDENTITY_ENABLED`
+- `ENTERPRISE_DEFAULT_PROVIDER_SLUG`
+- `BREAK_GLASS_LOCAL_LOGIN_ENABLED`
+
+OIDC inputs:
+
+- `OIDC_PROVIDER_SLUG`
+- `OIDC_PROVIDER_DISPLAY_NAME`
+- `OIDC_ISSUER`
+- `OIDC_AUTHORIZATION_ENDPOINT`
+- `OIDC_TOKEN_ENDPOINT`
+- `OIDC_JWKS_URI`
+- `OIDC_CLIENT_ID`
+- `OIDC_CLIENT_SECRET` or `OIDC_CLIENT_SECRET_FILE`
+- `OIDC_SCOPES`
+- `OIDC_VERIFIED_DOMAINS`
+- `OIDC_GROUP_CLAIM`
+- `OIDC_EMAIL_CLAIM`
+- `OIDC_SUBJECT_CLAIM`
+- `OIDC_GROUP_ROLE_MAPPINGS`
+
+SAML inputs:
+
+- `SAML_PROVIDER_SLUG`
+- `SAML_PROVIDER_DISPLAY_NAME`
+- `SAML_SSO_URL`
+- `SAML_ENTITY_ID`
+- `SAML_CERTIFICATE_PEM` or `SAML_CERTIFICATE_PEM_FILE`
+- `SAML_VERIFIED_DOMAINS`
+- `SAML_GROUP_ATTRIBUTE`
+- `SAML_EMAIL_ATTRIBUTE`
+- `SAML_SUBJECT_ATTRIBUTE`
+- `SAML_GROUP_ROLE_MAPPINGS`
+
+SCIM input:
+
+- `SCIM_BEARER_TOKEN` or `SCIM_BEARER_TOKEN_FILE`
 
 ## Feature Flags And Optional Extension Variables
 
@@ -78,7 +129,9 @@ When a feature flag is enabled, the API validates these envs before boot:
 - Expired idempotency records are cleaned up off the request path on a bounded schedule controlled by `IDEMPOTENCY_CLEANUP_INTERVAL_MS` and `IDEMPOTENCY_CLEANUP_BATCH_SIZE`.
 - Session freshness writes are throttled by `SESSION_TOUCH_INTERVAL_MS`; authenticated requests do not rewrite `lastUsedAt` on every hit.
 - Session tokens are opaque random values hashed server-side; the core template does not require a signing secret.
+- `SESSION_COOKIE_ENCRYPTION_KEY` and `SSO_STATE_ENCRYPTION_KEY` may be provided through direct env values or `*_FILE` secret mounts.
 - Password reset details are never exposed by default. Set `EXPOSE_DEV_RESET_DETAILS=true` only for explicit `APP_ENV=local` or `APP_ENV=test` workflows.
+- When enterprise identity is enabled in `APP_ENV=staging` or `APP_ENV=production`, local signup/login/reset flows are disabled unless break-glass is explicitly enabled.
 - `GET /api/projects/export.csv` streams the full filtered result or returns a structured `400` with `export_limit_exceeded`.
 - `GET /api/metrics` exposes Prometheus text metrics. OTLP tracing remains optional behind `FEATURE_OBSERVABILITY`.
 - Use `ALLOWED_ORIGINS` when the site must be reached from a LAN IP or a second browser origin in development.
