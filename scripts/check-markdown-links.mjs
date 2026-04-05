@@ -9,7 +9,10 @@ const ignoredDirectories = new Set([
   'coverage',
   'dist',
   'node_modules',
-  'playwright-report'
+  'playwright-report',
+  'references',
+  'server',
+  'test-results'
 ]);
 
 const markdownFiles = [];

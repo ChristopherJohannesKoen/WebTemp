@@ -106,6 +106,9 @@ docs/
   environment.md
   local-development.md
   deployment.md
+  contracts.md
+  web-hardening.md
+  testing-and-failpoints.md
   template-conventions.md
   customization-checklist.md
 infra/
@@ -131,6 +134,9 @@ The default template keeps the runtime small: web, API, and Postgres only. Optio
 - [Local Development Runbook](docs/local-development.md)
 - [Migrations](docs/migrations.md)
 - [Deployment Runbook](docs/deployment.md)
+- [API Contract Guide](docs/contracts.md)
+- [Web Hardening Guide](docs/web-hardening.md)
+- [Testing And Failpoint Guide](docs/testing-and-failpoints.md)
 - [Operations Guide](docs/operations.md)
 - [Template Conventions](docs/template-conventions.md)
 - [ADR 001](docs/adrs/001-template-scope.md)
