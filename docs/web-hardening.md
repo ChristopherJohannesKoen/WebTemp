@@ -15,7 +15,7 @@ The goal is not "secure enough for a demo." The goal is a repeatable default tha
 ## Reference Baseline
 
 The web hardening model in this document was informed by the local reference set
-under [`references/`](../references), especially:
+under the `references/` directory, especially:
 
 - `next-safe-middleware-main` and the archived Next.js CSP issue PDFs for nonce
   and App Router behavior

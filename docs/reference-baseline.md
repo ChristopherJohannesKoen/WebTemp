@@ -3,7 +3,7 @@
 ## Purpose
 
 This repository was not built from a single starter. It was built from a
-curated local research set under [`references/`](../references) and then
+curated local research set under the `references/` directory and then
 implemented as one opinionated template.
 
 Some references influenced the code directly. Others were used as validation

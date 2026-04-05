@@ -159,6 +159,6 @@ The default template keeps the runtime small: web, API, and Postgres only. Optio
 ## Built From
 
 This template was shaped against the curated local research set in
-[`references/`](references), not copied from a single starter. The detailed map
+the `references/` directory, not copied from a single starter. The detailed map
 of direct donors, validation references, and intentionally unadopted patterns
 is in [Reference Baseline](docs/reference-baseline.md).
