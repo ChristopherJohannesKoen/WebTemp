@@ -389,7 +389,6 @@ describe('AuthService', () => {
   });
 
   it('touches and rotates sessions when the policy requires it', async () => {
-    const now = new Date();
     const prismaService = {
       session: {
         findUnique: vi.fn().mockResolvedValue({
