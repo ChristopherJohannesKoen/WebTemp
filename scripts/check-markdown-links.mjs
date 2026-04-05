@@ -64,14 +64,16 @@ function extractLinks(contents) {
 
 function validateLink(fromFile, rawTarget) {
   const target = rawTarget.trim().replace(/^<|>$/g, '');
+  const normalized = target.trim().toLowerCase();
 
   if (
-    target.startsWith('http://') ||
-    target.startsWith('https://') ||
-    target.startsWith('mailto:') ||
-    target.startsWith('tel:') ||
-    target.startsWith('javascript:') ||
-    target.startsWith('data:')
+    normalized.startsWith('http://') ||
+    normalized.startsWith('https://') ||
+    normalized.startsWith('mailto:') ||
+    normalized.startsWith('tel:') ||
+    normalized.startsWith('javascript:') ||
+    normalized.startsWith('data:') ||
+    normalized.startsWith('vbscript:')
   ) {
     return;
   }
