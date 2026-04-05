@@ -112,6 +112,9 @@ packages/
   db/                   Prisma schema, migrations, seed script
   shared/               Zod schemas and shared DTO types
   ui/                   Reusable UI primitives
+vendor/
+  nestjs-config/        Temporary vendored @nestjs/config security patch
+  nestjs-swagger/       Temporary vendored @nestjs/swagger security patch
 docs/
   architecture.md
   code-critique.md
@@ -162,3 +165,13 @@ This template was shaped against the curated local research set in
 the `references/` directory, not copied from a single starter. The detailed map
 of direct donors, validation references, and intentionally unadopted patterns
 is in [Reference Baseline](docs/reference-baseline.md).
+
+## Dependency Security Notes
+
+The repo currently vendors patched copies of `@nestjs/config` and
+`@nestjs/swagger` under `vendor/` because their published manifests still pin
+vulnerable transitive versions of `lodash` and `path-to-regexp`. Only package
+manifests were changed; runtime code remains the upstream package build output.
+
+See [`vendor/README.md`](vendor/README.md) for the exact patched dependencies
+and remove the vendored copies once upstream publishes equivalent fixes.

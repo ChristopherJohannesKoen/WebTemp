@@ -4,7 +4,13 @@ import { SessionService } from '../src/modules/auth/session.service';
 
 function createConfigService(overrides: Record<string, string> = {}) {
   return {
-    get: vi.fn((key: string, defaultValue?: string) => overrides[key] ?? defaultValue)
+    get: vi.fn(
+      (key: string, defaultValue?: string) =>
+        overrides[key] ??
+        (key === 'SESSION_COOKIE_ENCRYPTION_KEY'
+          ? '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
+          : defaultValue)
+    )
   };
 }
 
@@ -71,5 +77,20 @@ describe('SessionService', () => {
     expect([firstResult?.rotatedToken, secondResult?.rotatedToken].filter(Boolean)).toHaveLength(1);
     expect(metricsService.recordSessionEvent).toHaveBeenCalledWith('touched');
     expect(metricsService.recordSessionEvent).toHaveBeenCalledWith('rotated');
+  });
+
+  it('round-trips encrypted session cookie values', () => {
+    const service = new SessionService(
+      {} as never,
+      createConfigService() as never,
+      createMetricsService() as never
+    );
+
+    const rawToken = 'raw-session-token';
+    const encodedToken = service.encodeSessionCookieToken(rawToken);
+
+    expect(encodedToken).not.toBe(rawToken);
+    expect(service.decodeSessionCookieToken(encodedToken)).toBe(rawToken);
+    expect(service.decodeSessionCookieToken(`${encodedToken}tampered`)).toBeUndefined();
   });
 });

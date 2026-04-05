@@ -8,6 +8,8 @@ FROM base AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY apps/web/package.json ./apps/web/package.json
+COPY vendor/nestjs-config-4.0.3.tgz ./vendor/nestjs-config-4.0.3.tgz
+COPY vendor/nestjs-swagger-11.2.6.tgz ./vendor/nestjs-swagger-11.2.6.tgz
 COPY packages/shared/package.json ./packages/shared/package.json
 COPY packages/ui/package.json ./packages/ui/package.json
 COPY packages/config/package.json ./packages/config/package.json

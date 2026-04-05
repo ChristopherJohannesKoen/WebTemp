@@ -199,7 +199,7 @@ export class AuthService {
     };
   }
 
-  async resetPassword(dto: ResetPasswordDto, metadata: SessionMetadata) {
+  async completePasswordReset(dto: ResetPasswordDto) {
     const tokenHash = this.hashToken(dto.token);
     const tokenRecord = await this.prismaService.passwordResetToken.findUnique({
       where: { tokenHash }
@@ -238,7 +238,12 @@ export class AuthService {
     });
     this.metricsService.recordAuthEvent('password_reset_completed');
 
-    return this.createAuthResult(user, metadata);
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role
+    };
   }
 
   async issueCsrfToken(sessionId: string) {
@@ -267,6 +272,14 @@ export class AuthService {
 
   getCookieName() {
     return this.sessionService.getCookieName();
+  }
+
+  encodeSessionCookieToken(rawToken: string) {
+    return this.sessionService.encodeSessionCookieToken(rawToken);
+  }
+
+  async issueSessionForUser(userId: string, metadata: SessionMetadata) {
+    return this.sessionService.createSession(userId, metadata);
   }
 
   private async createAuthResult(

@@ -7,7 +7,13 @@ import { SessionService } from '../src/modules/auth/session.service';
 
 function createConfigService(overrides: Record<string, string> = {}) {
   return {
-    get: vi.fn((key: string, defaultValue?: string) => overrides[key] ?? defaultValue)
+    get: vi.fn(
+      (key: string, defaultValue?: string) =>
+        overrides[key] ??
+        (key === 'SESSION_COOKIE_ENCRYPTION_KEY'
+          ? '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
+          : defaultValue)
+    )
   };
 }
 
