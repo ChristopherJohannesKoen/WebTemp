@@ -22,6 +22,7 @@ An opinionated full-stack SaaS template for teams that want to start from a hard
 - Docker-first local stack with Next.js, NestJS, and Postgres
 - optional observability profiles for Prometheus and Grafana
 - real lint, typecheck, unit tests, API integration tests, and Playwright auth/project/session/RBAC coverage
+- DB-backed bootstrap ownership state and owner-floor role protection for concurrent admin changes
 - markdown lint, internal doc-link validation, and k6 performance assets for auth/session/write-heavy flows
 - browser-boundary hardening with CSP, clickjacking protection, strict cookie forwarding, route-level forbidden/error states, and role-aware admin navigation
 - contract-backed web/API calls through `packages/contracts` with runtime Zod validation for JSON responses and explicit non-JSON handling for export/download paths
@@ -50,6 +51,14 @@ Seeded owner credentials come from `.env`:
 
 - email: `owner@example.com`
 - password: `ChangeMe123!`
+
+`APP_ENV` is the deployment-security axis:
+
+- `local` for developer machines
+- `test` for automated test harnesses
+- `staging` and `production` for strict deploy targets
+
+Local-only toggles such as `ALLOW_MISSING_ORIGIN_FOR_DEV` and `EXPOSE_DEV_RESET_DETAILS` now fail fast outside their allowed environments.
 
 ### Docker
 
@@ -84,6 +93,9 @@ docker compose up --build
 - `npm run test:e2e`: run the full Playwright E2E suite
 - `npm run docs:check`: run markdown lint and internal link validation
 - `npm run test:perf:smoke`: run the smoke-level k6 performance scenario
+- `npm run test:perf:critical`: run the deeper critical auth/session/project API performance scenario
+- `npm run perf:up`: start the Compose stack with the local perf env overlay for K6 runs
+- `npm run perf:down`: stop the local perf stack
 - `npm run build`: produce production builds for every workspace
 - `npm run docker:up`: build and start the Compose stack
 - `npm run docker:down`: stop and clean up Compose containers

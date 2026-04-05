@@ -1,6 +1,11 @@
 import http from 'k6/http';
 import { check, sleep } from 'k6';
-import { getApiOrigin, getSeedOwnerEmail } from './shared.js';
+import {
+  createFirstPartyHeaders,
+  getApiOrigin,
+  getSeedOwnerEmail,
+  withExpectedStatuses
+} from './shared.js';
 
 export const options = {
   scenarios: {
@@ -15,7 +20,7 @@ export const options = {
   },
   thresholds: {
     http_req_failed: ['rate<0.02'],
-    http_req_duration: ['p(95)<800']
+    'http_req_duration{name:auth_password_reset_request}': ['p(95)<800']
   }
 };
 
@@ -26,8 +31,12 @@ export default function () {
       email: getSeedOwnerEmail()
     }),
     {
-      headers: {
+      headers: createFirstPartyHeaders({
         'Content-Type': 'application/json'
+      }),
+      ...withExpectedStatuses(200),
+      tags: {
+        name: 'auth_password_reset_request'
       }
     }
   );

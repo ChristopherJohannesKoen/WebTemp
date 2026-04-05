@@ -85,6 +85,7 @@ async function buildPasswordHash(password: string) {
 }
 
 async function clearTemplateData(prisma: PrismaClient) {
+  await prisma.bootstrapState.deleteMany();
   await prisma.idempotencyRequest.deleteMany();
   await prisma.passwordResetToken.deleteMany();
   await prisma.session.deleteMany();
@@ -120,6 +121,13 @@ async function seedBaselineData(prisma: PrismaClient) {
       }
     })
   };
+
+  await prisma.bootstrapState.create({
+    data: {
+      id: 1,
+      bootstrapOwnerId: createdUsers.owner.id
+    }
+  });
 
   for (const project of seedProjects) {
     await prisma.project.create({
@@ -205,6 +213,39 @@ export async function runMigrations() {
   await runCommand('npm run prisma:migrate:deploy --workspace=@packages/db');
 }
 
+export async function runSeed(envOverrides: Record<string, string> = {}) {
+  return new Promise<{ exitCode: number; stderr: string; stdout: string }>((resolve, reject) => {
+    const child = spawn('npm run seed --workspace=@packages/db', {
+      cwd: process.cwd(),
+      env: {
+        ...getE2EEnv(),
+        ...envOverrides
+      },
+      shell: true
+    });
+
+    let stdout = '';
+    let stderr = '';
+
+    child.stdout?.on('data', (chunk) => {
+      stdout += chunk.toString();
+    });
+
+    child.stderr?.on('data', (chunk) => {
+      stderr += chunk.toString();
+    });
+
+    child.on('error', reject);
+    child.on('exit', (code) => {
+      resolve({
+        exitCode: code ?? 0,
+        stderr,
+        stdout
+      });
+    });
+  });
+}
+
 export async function resetDatabase(mode: ResetMode) {
   const prisma = createPrismaClient();
 
@@ -250,4 +291,43 @@ export async function addProjectsForPagination(count: number, creatorEmail = see
 
 export function getSeedUser(role: keyof typeof seedUsers) {
   return seedUsers[role];
+}
+
+export async function getBootstrapState() {
+  const prisma = createPrismaClient();
+
+  try {
+    return prisma.bootstrapState.findUnique({
+      where: { id: 1 },
+      include: {
+        bootstrapOwner: true
+      }
+    });
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
+export async function countOwners() {
+  const prisma = createPrismaClient();
+
+  try {
+    return prisma.user.count({
+      where: {
+        role: Role.owner
+      }
+    });
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
+export async function countBootstrapStates() {
+  const prisma = createPrismaClient();
+
+  try {
+    return prisma.bootstrapState.count();
+  } finally {
+    await prisma.$disconnect();
+  }
 }

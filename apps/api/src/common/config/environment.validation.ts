@@ -1,9 +1,18 @@
 import * as Joi from 'joi';
+import {
+  appEnvironmentValues,
+  canAllowMissingOrigin,
+  canExposeResetDetails,
+  normalizeAppEnvironment
+} from './app-environment';
 
 type Environment = Record<string, unknown>;
 
 const environmentSchema = Joi.object({
   NODE_ENV: Joi.string().valid('development', 'test', 'production').default('development'),
+  APP_ENV: Joi.string()
+    .valid(...appEnvironmentValues)
+    .default('local'),
   APP_URL: Joi.string().uri().required(),
   API_ORIGIN: Joi.string().uri().required(),
   ALLOWED_ORIGINS: Joi.string().allow('').default(''),
@@ -63,7 +72,12 @@ function assertRequiredWhenEnabled(
 }
 
 export function validateEnvironment(rawEnvironment: Environment) {
-  const { error, value } = environmentSchema.validate(rawEnvironment, {
+  const normalizedRawEnvironment = {
+    ...rawEnvironment,
+    APP_ENV: normalizeAppEnvironment(rawEnvironment.APP_ENV, String(rawEnvironment.NODE_ENV ?? 'development'))
+  };
+
+  const { error, value } = environmentSchema.validate(normalizedRawEnvironment, {
     abortEarly: false,
     convert: true,
     allowUnknown: true
@@ -95,6 +109,18 @@ export function validateEnvironment(rawEnvironment: Environment) {
   ]);
   assertRequiredWhenEnabled(value, 'FEATURE_CACHE', ['REDIS_URL']);
   assertRequiredWhenEnabled(value, 'FEATURE_OBSERVABILITY', ['OTEL_EXPORTER_OTLP_ENDPOINT']);
+
+  if (value.ALLOW_MISSING_ORIGIN_FOR_DEV && !canAllowMissingOrigin(value.APP_ENV)) {
+    throw new Error(
+      'Environment validation failed: ALLOW_MISSING_ORIGIN_FOR_DEV can only be enabled when APP_ENV=local.'
+    );
+  }
+
+  if (value.EXPOSE_DEV_RESET_DETAILS && !canExposeResetDetails(value.APP_ENV)) {
+    throw new Error(
+      'Environment validation failed: EXPOSE_DEV_RESET_DETAILS can only be enabled when APP_ENV=local or APP_ENV=test.'
+    );
+  }
 
   return value;
 }

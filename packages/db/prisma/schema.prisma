@@ -13,12 +13,21 @@ model User {
   name                String
   passwordHash        String
   role                Role                 @default(member)
+  bootstrapOwnership  BootstrapState?      @relation("BootstrapOwner")
   sessions            Session[]
   passwordResetTokens PasswordResetToken[]
   auditLogs           AuditLog[]           @relation("AuditActor")
   createdProjects     Project[]            @relation("ProjectCreator")
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
+}
+
+model BootstrapState {
+  id               Int      @id @default(1)
+  bootstrapOwnerId String   @unique
+  bootstrapOwner   User     @relation("BootstrapOwner", fields: [bootstrapOwnerId], references: [id], onDelete: Restrict)
+  completedAt      DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 }
 
 model Session {

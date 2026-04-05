@@ -1,6 +1,14 @@
 import http from 'k6/http';
 import { check, sleep } from 'k6';
-import { createSessionHeaders, getAppUrl, login } from './shared.js';
+import {
+  createSessionHeaders,
+  ensurePerfUser,
+  getAppUrl,
+  loginPerfUser,
+  withExpectedStatuses
+} from './shared.js';
+
+let cachedSessionCookie;
 
 export const options = {
   scenarios: {
@@ -17,15 +25,26 @@ export const options = {
 };
 
 export default function () {
-  const sessionCookie = login();
+  if (!cachedSessionCookie) {
+    ensurePerfUser('dashboard-read');
+    cachedSessionCookie = loginPerfUser('dashboard-read');
+  }
+
+  const sessionCookie = cachedSessionCookie;
   const headers = createSessionHeaders(sessionCookie);
 
-  const dashboardResponse = http.get(`${getAppUrl()}/app`, { headers });
+  const dashboardResponse = http.get(`${getAppUrl()}/app`, {
+    headers,
+    ...withExpectedStatuses(200)
+  });
   check(dashboardResponse, {
     'dashboard page loads': (response) => response.status === 200
   });
 
-  const projectsResponse = http.get(`${getAppUrl()}/app/projects`, { headers });
+  const projectsResponse = http.get(`${getAppUrl()}/app/projects`, {
+    headers,
+    ...withExpectedStatuses(200)
+  });
   check(projectsResponse, {
     'projects page loads': (response) => response.status === 200
   });

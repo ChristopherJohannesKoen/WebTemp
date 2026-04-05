@@ -180,26 +180,43 @@ export class SessionService {
       now.getTime() - session.lastUsedAt.getTime() >= this.getSessionTouchIntervalMs();
     let rotatedToken: string | undefined;
     const shouldPersistSession = shouldRotate || shouldTouch;
-    const updatedSession = shouldPersistSession
-      ? await this.prismaService.session.update({
-          where: { id: session.id },
-          data: {
-            lastUsedAt: now,
-            lastRotatedAt: shouldRotate ? now : undefined,
-            tokenHash: shouldRotate
-              ? this.hashToken((rotatedToken = this.generateToken()))
-              : undefined,
-            ipAddress: metadata.ipAddress ?? session.ipAddress ?? null,
-            userAgent: metadata.userAgent ?? session.userAgent ?? null
-          }
-        })
-      : session;
+    let updatedSession = session;
 
-    if (shouldTouch) {
+    if (shouldPersistSession) {
+      const candidateRotatedToken = shouldRotate ? this.generateToken() : undefined;
+      const updateResult = await this.prismaService.session.updateMany({
+        where: {
+          id: session.id,
+          tokenHash
+        },
+        data: {
+          lastUsedAt: now,
+          lastRotatedAt: shouldRotate ? now : undefined,
+          tokenHash: candidateRotatedToken
+            ? this.hashToken(candidateRotatedToken)
+            : undefined,
+          ipAddress: metadata.ipAddress ?? session.ipAddress ?? null,
+          userAgent: metadata.userAgent ?? session.userAgent ?? null
+        }
+      });
+
+      if (updateResult.count > 0) {
+        rotatedToken = candidateRotatedToken;
+        updatedSession = {
+          ...session,
+          lastUsedAt: now,
+          lastRotatedAt: shouldRotate ? now : session.lastRotatedAt,
+          ipAddress: metadata.ipAddress ?? session.ipAddress ?? null,
+          userAgent: metadata.userAgent ?? session.userAgent ?? null
+        };
+      }
+    }
+
+    if (shouldTouch && updatedSession !== session) {
       this.metricsService.recordSessionEvent('touched');
     }
 
-    if (shouldRotate) {
+    if (shouldRotate && rotatedToken) {
       this.metricsService.recordSessionEvent('rotated');
     }
 

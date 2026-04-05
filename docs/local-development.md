@@ -37,6 +37,13 @@ Seed data provisions the initial owner through setup, not public signup.
 
 Keep these credentials in local docs only. The public login and signup pages intentionally do not render them.
 
+## Environment Safety Notes
+
+- Keep `APP_ENV=local` on a developer machine unless you are explicitly running the automated test harness.
+- `ALLOW_MISSING_ORIGIN_FOR_DEV=true` is a local-only escape hatch for niche non-browser tools. Do not carry it into shared or deploy-like environments.
+- `EXPOSE_DEV_RESET_DETAILS=true` is valid only for local/test workflows and should be turned on only for the session where you need raw reset tokens or URLs.
+- If you want to emulate stricter deploy posture locally, leave `NODE_ENV=development` but switch `APP_ENV=staging`; startup validation will reject local-only security toggles.
+
 ## Web Security Notes
 
 - The web app now runs with a nonce-based CSP. Because of that, pages render dynamically per request instead of using static generation.
@@ -58,6 +65,7 @@ Keep these credentials in local docs only. The public login and signup pages int
 
 - If Prisma complains about missing generated types, run `npm run prisma:generate`.
 - If the first admin account is missing, rerun `npm run db:setup`; owner bootstrap comes from seed data, not public signup.
+- If `npm run seed` fails with a bootstrap-owner mismatch, check whether `SEED_OWNER_EMAIL` changed after the database was already initialized. The template now refuses to silently move bootstrap ownership to a new email.
 - If auth requests fail across origins, confirm `APP_URL`, `API_ORIGIN`, and `ALLOWED_ORIGINS` match the actual local or LAN URLs.
 - If a local non-browser client cannot send `Origin` or `Referer`, set `ALLOW_MISSING_ORIGIN_FOR_DEV=true` only for that development session.
 - If you need a raw reset token or reset URL locally, set `EXPOSE_DEV_RESET_DETAILS=true` for that session only; it stays off by default.

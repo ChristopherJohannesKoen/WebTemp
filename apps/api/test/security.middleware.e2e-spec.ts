@@ -82,6 +82,7 @@ describe('Security middleware (e2e)', () => {
 
   function setEnv(overrides: Record<string, string>) {
     process.env.NODE_ENV = overrides.NODE_ENV;
+    process.env.APP_ENV = overrides.APP_ENV;
     process.env.APP_URL = overrides.APP_URL;
     process.env.API_ORIGIN = overrides.API_ORIGIN;
     process.env.ALLOWED_ORIGINS = overrides.ALLOWED_ORIGINS ?? '';
@@ -104,6 +105,7 @@ describe('Security middleware (e2e)', () => {
   it('allows missing origin in test mode', async () => {
     setEnv({
       NODE_ENV: 'test',
+      APP_ENV: 'test',
       APP_URL: 'http://localhost:3000',
       API_ORIGIN: 'http://localhost:4000'
     });
@@ -117,6 +119,7 @@ describe('Security middleware (e2e)', () => {
   it('rejects missing origin by default in development', async () => {
     setEnv({
       NODE_ENV: 'development',
+      APP_ENV: 'local',
       APP_URL: 'http://localhost:3000',
       API_ORIGIN: 'http://localhost:4000',
       ALLOW_MISSING_ORIGIN_FOR_DEV: 'false'
@@ -132,6 +135,7 @@ describe('Security middleware (e2e)', () => {
   it('allows missing origin only when explicitly enabled for local development', async () => {
     setEnv({
       NODE_ENV: 'development',
+      APP_ENV: 'local',
       APP_URL: 'http://localhost:3000',
       API_ORIGIN: 'http://localhost:4000',
       ALLOW_MISSING_ORIGIN_FOR_DEV: 'true'
@@ -143,9 +147,25 @@ describe('Security middleware (e2e)', () => {
     expect(response.status).toBe(201);
   });
 
+  it('rejects missing origin in staging and production app environments', async () => {
+    setEnv({
+      NODE_ENV: 'production',
+      APP_ENV: 'staging',
+      APP_URL: 'https://app.example.com',
+      API_ORIGIN: 'https://api.example.com'
+    });
+    await createApp();
+
+    const response = await request(app.getHttpServer()).post('/mutate');
+
+    expect(response.status).toBe(403);
+    expect(response.body.message).toBe('Missing request origin.');
+  });
+
   it('rejects missing origin in production', async () => {
     setEnv({
       NODE_ENV: 'production',
+      APP_ENV: 'production',
       APP_URL: 'https://app.example.com',
       API_ORIGIN: 'https://api.example.com'
     });
@@ -160,6 +180,7 @@ describe('Security middleware (e2e)', () => {
   it('requires a valid csrf token for authenticated unsafe requests', async () => {
     setEnv({
       NODE_ENV: 'test',
+      APP_ENV: 'test',
       APP_URL: 'http://localhost:3000',
       API_ORIGIN: 'http://localhost:4000'
     });

@@ -1,6 +1,8 @@
 import { ForbiddenException, Injectable, NestMiddleware } from '@nestjs/common';
 import type { NextFunction, Response } from 'express';
 import { parseAllowedOrigins } from '../config/allowed-origins';
+import { canAllowMissingOrigin, isTestAppEnvironment, normalizeAppEnvironment } from '../config/app-environment';
+import { readBooleanConfig } from '../config/boolean-config';
 import type { AuthenticatedRequest } from '../types/authenticated-request';
 import { MetricsService } from '../../modules/observability/metrics.service';
 
@@ -14,7 +16,7 @@ export class OriginGuardMiddleware implements NestMiddleware {
       return;
     }
 
-    const isTest = process.env.NODE_ENV === 'test';
+    const appEnvironment = normalizeAppEnvironment(process.env.APP_ENV, process.env.NODE_ENV);
     const origin = request.header('origin');
     const referer = request.header('referer');
     const allowedOrigins = new Set(
@@ -30,10 +32,10 @@ export class OriginGuardMiddleware implements NestMiddleware {
 
     if (!origin && !referer) {
       const allowMissingOriginForDev =
-        process.env.NODE_ENV === 'development' &&
-        process.env.ALLOW_MISSING_ORIGIN_FOR_DEV === 'true';
+        canAllowMissingOrigin(appEnvironment) &&
+        readBooleanConfig(process.env.ALLOW_MISSING_ORIGIN_FOR_DEV, false);
 
-      if (isTest || allowMissingOriginForDev) {
+      if (isTestAppEnvironment(appEnvironment) || allowMissingOriginForDev) {
         next();
         return;
       }

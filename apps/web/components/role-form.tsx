@@ -27,16 +27,11 @@ export function RoleForm({ user }: { user: UserSummary }) {
     }
   }
 
-  if (user.role === 'owner') {
-    return (
-      <span className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-700">Owner</span>
-    );
-  }
-
   return (
     <form action={handleSubmit} className="grid gap-2" data-testid="role-form">
       <div className="flex flex-wrap items-center gap-2">
         <Select data-testid="role-select" defaultValue={user.role} name="role">
+          <option value="owner">Owner</option>
           <option value="admin">Admin</option>
           <option value="member">Member</option>
         </Select>

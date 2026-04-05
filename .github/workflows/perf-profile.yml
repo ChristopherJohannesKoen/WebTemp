@@ -1,12 +1,12 @@
-name: Perf Smoke
+name: Perf Profile
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 3 * * *'
+    - cron: '0 2 * * *'
 
 jobs:
-  perf-smoke:
+  perf-profile:
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -58,5 +58,35 @@ jobs:
           node ./scripts/wait-for-http.mjs http://127.0.0.1:4000/api/health 120000
           node ./scripts/wait-for-http.mjs http://127.0.0.1:3000 120000
 
-      - name: Run perf smoke
-        run: npm run test:perf:smoke
+      - name: Prepare artifact directory
+        run: mkdir -p perf-artifacts
+
+      - name: Capture pre-run database summary
+        run: node ./scripts/with-env.mjs node ./scripts/export-db-activity.mjs perf-artifacts/db-before.json
+
+      - name: Run auth/session churn profile
+        run: k6 run tests/perf/auth-session-churn.js --summary-export perf-artifacts/auth-session-churn.json
+
+      - name: Run critical API profile
+        run: k6 run tests/perf/api-critical-paths.js --summary-export perf-artifacts/api-critical-paths.json
+
+      - name: Run dashboard read profile
+        run: k6 run tests/perf/dashboard-read.js --summary-export perf-artifacts/dashboard-read.json
+
+      - name: Run idempotent project create profile
+        run: k6 run tests/perf/project-create-idempotent.js --summary-export perf-artifacts/project-create-idempotent.json
+
+      - name: Run password reset burst profile
+        run: k6 run tests/perf/password-reset-burst.js --summary-export perf-artifacts/password-reset-burst.json
+
+      - name: Capture post-run database summary
+        run: node ./scripts/with-env.mjs node ./scripts/export-db-activity.mjs perf-artifacts/db-after.json
+
+      - name: Upload perf artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-profile-artifacts
+          path: |
+            perf-artifacts
+            api.log
+            web.log

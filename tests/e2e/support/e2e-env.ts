@@ -26,6 +26,7 @@ export function loadE2EEnv() {
   loadIfPresent(rootPath('.env.e2e'), true);
 
   process.env.NODE_ENV ??= 'test';
+  process.env.APP_ENV ??= 'test';
   process.env.APP_URL ??= 'http://127.0.0.1:3100';
   process.env.API_ORIGIN ??= 'http://127.0.0.1:4100';
   process.env.ALLOWED_ORIGINS ??= 'http://127.0.0.1:3100';
@@ -48,6 +49,7 @@ export function getE2EEnv() {
   return {
     ...process.env,
     NODE_ENV: process.env.NODE_ENV ?? 'test',
+    APP_ENV: process.env.APP_ENV ?? 'test',
     APP_URL: process.env.APP_URL ?? 'http://127.0.0.1:3100',
     API_ORIGIN: process.env.API_ORIGIN ?? 'http://127.0.0.1:4100',
     ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS ?? 'http://127.0.0.1:3100',

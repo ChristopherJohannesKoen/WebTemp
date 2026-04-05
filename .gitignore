@@ -3,6 +3,7 @@ node_modules
 dist
 .turbo
 .env
+.env.perf
 .env.e2e
 .env.local
 *.log

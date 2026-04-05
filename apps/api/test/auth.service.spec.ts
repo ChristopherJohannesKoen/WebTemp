@@ -17,6 +17,7 @@ function createMetricsService() {
     recordAuthEvent: vi.fn(),
     recordSessionEvent: vi.fn(),
     recordSecurityEvent: vi.fn(),
+    recordOwnershipEvent: vi.fn(),
     recordIdempotencyEvent: vi.fn(),
     observeIdempotencyCleanup: vi.fn()
   };
@@ -229,6 +230,7 @@ describe('AuthService', () => {
       prismaService,
       {
         NODE_ENV: 'development',
+        APP_ENV: 'local',
         APP_URL: 'http://localhost:3000',
         EXPOSE_DEV_RESET_DETAILS: 'true',
         ARGON2_MEMORY_COST: '1024'
@@ -266,6 +268,7 @@ describe('AuthService', () => {
       prismaService,
       {
         NODE_ENV: 'development',
+        APP_ENV: 'local',
         APP_URL: 'http://localhost:3000',
         EXPOSE_DEV_RESET_DETAILS: 'false',
         ARGON2_MEMORY_COST: '1024'
@@ -407,16 +410,8 @@ describe('AuthService', () => {
             role: 'member'
           }
         }),
-        update: vi.fn().mockResolvedValue({
-          id: 'session_1',
-          userId: 'user_member',
-          csrfTokenHash: 'csrf-hash',
-          expiresAt: new Date(Date.now() + 60_000),
-          createdAt: new Date(Date.now() - 7_200_000),
-          lastUsedAt: now,
-          lastRotatedAt: now,
-          ipAddress: '10.0.0.1',
-          userAgent: 'new-agent'
+        updateMany: vi.fn().mockResolvedValue({
+          count: 1
         })
       }
     };
@@ -436,8 +431,8 @@ describe('AuthService', () => {
       userAgent: 'new-agent'
     });
 
-    expect(prismaService.session.update).toHaveBeenCalledTimes(1);
-    expect(prismaService.session.update).toHaveBeenCalledWith(
+    expect(prismaService.session.updateMany).toHaveBeenCalledTimes(1);
+    expect(prismaService.session.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
           lastUsedAt: expect.any(Date),

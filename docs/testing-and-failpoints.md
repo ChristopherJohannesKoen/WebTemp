@@ -56,6 +56,8 @@ The suite covers:
 - projects CRUD/filter/export behavior
 - session management
 - RBAC regression paths
+- bootstrap ownership invariants under concurrent seed execution
+- multi-actor admin race coverage with separate browser contexts
 
 ## E2E Bootstrap Path
 
@@ -134,12 +136,24 @@ At minimum, changes that affect contract-backed routes should have:
 
 ## Performance Assets
 
-The repository also includes `tests/perf` for k6-based validation. These are not required on every PR, but they are part of the template deliverable and should be kept aligned with:
+The repository also includes `tests/perf` for k6-based validation. The smoke scenario is now a blocking CI gate, while the broader profile set stays nightly/manual. Keep them aligned with:
 
 - real API paths
 - real auth/session flow expectations
 - idempotency behavior
 - current cookie and CSRF assumptions
+- current bootstrap and owner-floor invariants
+
+## Concurrency Coverage Expectations
+
+Top-tier correctness in this template now assumes coverage for:
+
+- concurrent seed/bootstrap execution against the same database
+- owner-floor protection during conflicting owner-sensitive role changes
+- stale admin sessions losing access on the next privileged request
+- session touch/rotation/revocation behavior under repeated authenticated reads
+
+If you change ownership, session, or admin semantics, extend these suites instead of replacing them with timing-based smoke checks.
 
 ## Review Checklist
 

@@ -42,6 +42,8 @@ This repository is a reusable single-tenant SaaS template. It is intentionally o
 ## Security Invariants
 
 - Seed/setup flows establish the initial owner; public signup never bootstraps privileged roles.
+- Bootstrap ownership is anchored in the database through a singleton `BootstrapState` record. Seed/setup creates it in a serializable transaction and refuses to silently migrate it to a new configured owner email later.
+- Multiple owners are allowed after bootstrap, but owner-sensitive role updates must never leave the system with zero owners.
 - Role-protected routes return `401` when unauthenticated and `403` only for authenticated-but-forbidden requests.
 - Mutating first-party browser requests require a valid CSRF token, and origin checks stay strict by default outside tests.
 - Synchronous CSV export must return the full filtered result or fail explicitly; it must never silently truncate.
@@ -49,6 +51,15 @@ This repository is a reusable single-tenant SaaS template. It is intentionally o
 - `PrismaClient` must only be owned by `PrismaService`; middleware and feature modules must never instantiate their own client.
 - The web tier forwards only the configured session cookie to the API; unrelated browser cookies must never become auth inputs.
 - Protected route failures must distinguish `401`, `403`, `404`, and upstream errors instead of collapsing them into redirects or fake not-found states.
+
+## Ownership And Role Safety
+
+- Public signup always creates `member`.
+- Seed/setup is the only normal bootstrap path for the initial owner.
+- Owner role updates run inside serializable transactions with retry on serialization failure.
+- If the last remaining owner would be demoted, the API returns `409 owner_floor_violation`.
+- If concurrent owner-sensitive updates cannot be resolved after bounded retries, the API returns `409 role_conflict`.
+- Each privileged denial path records audit metadata and ownership metrics so operator tooling can distinguish policy rejection from normal role changes.
 
 ## Web Security Boundary
 
@@ -82,6 +93,7 @@ The web app and API both rely on these schemas so UI and server drift is reduced
 - Production runtime code does not contain E2E-only failpoint branches.
 - Browser failure-path tests use an API-only failpoint module loaded from the E2E bootstrap entrypoint.
 - The E2E harness can arm one-shot upstream failures without mixing query toggles or environment branches into website request code.
+- Ownership and admin-race coverage includes concurrent seed/bootstrap tests, active-admin demotion coverage, and conflicting owner-demotion flows in browser contexts backed by the real database.
 
 ## Extension Strategy
 

@@ -10,6 +10,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import type { SessionUser } from '@packages/shared';
 import type { AuthenticatedSession } from '../../common/types/authenticated-request';
 import { readBooleanConfig } from '../../common/config/boolean-config';
+import { canExposeResetDetails, normalizeAppEnvironment } from '../../common/config/app-environment';
 import { publicUserSelect, type PublicUserRecord } from '../../common/prisma/public-selects';
 import { AuditService } from '../audit/audit.service';
 import { MetricsService } from '../observability/metrics.service';
@@ -310,6 +311,10 @@ export class AuthService {
 
   private shouldExposeResetDetails() {
     const nodeEnvironment = this.configService.get<string>('NODE_ENV', 'development');
+    const appEnvironment = normalizeAppEnvironment(
+      this.configService.get<string>('APP_ENV'),
+      nodeEnvironment
+    );
     const exposeDevResetDetails = readBooleanConfig(
       this.configService.get<string | boolean>(
         'EXPOSE_DEV_RESET_DETAILS',
@@ -318,6 +323,6 @@ export class AuthService {
       false
     );
 
-    return exposeDevResetDetails && ['development', 'test'].includes(nodeEnvironment);
+    return exposeDevResetDetails && canExposeResetDetails(appEnvironment);
   }
 }

@@ -3,10 +3,15 @@ import { check, sleep } from 'k6';
 import {
   createIdempotencyKey,
   createSessionHeaders,
+  ensurePerfUser,
   fetchCsrfToken,
   getApiOrigin,
-  login
+  loginPerfUser,
+  withExpectedStatuses
 } from './shared.js';
+
+let cachedSessionCookie;
+let cachedCsrfToken;
 
 export const options = {
   scenarios: {
@@ -18,13 +23,19 @@ export const options = {
   },
   thresholds: {
     http_req_failed: ['rate<0.02'],
-    http_req_duration: ['p(95)<1200']
+    'http_req_duration{name:projects_create}': ['p(95)<900']
   }
 };
 
 export default function () {
-  const sessionCookie = login();
-  const csrfToken = fetchCsrfToken(sessionCookie);
+  if (!cachedSessionCookie) {
+    ensurePerfUser('idempotent-project-create');
+    cachedSessionCookie = loginPerfUser('idempotent-project-create');
+    cachedCsrfToken = fetchCsrfToken(cachedSessionCookie);
+  }
+
+  const sessionCookie = cachedSessionCookie;
+  const csrfToken = cachedCsrfToken;
   const idempotencyKey = createIdempotencyKey('project-create');
   const headers = createSessionHeaders(sessionCookie, csrfToken, {
     'Content-Type': 'application/json',
@@ -37,8 +48,20 @@ export default function () {
     isArchived: false
   });
 
-  const firstResponse = http.post(`${getApiOrigin()}/api/projects`, payload, { headers });
-  const replayResponse = http.post(`${getApiOrigin()}/api/projects`, payload, { headers });
+  const firstResponse = http.post(`${getApiOrigin()}/api/projects`, payload, {
+    headers,
+    ...withExpectedStatuses(201),
+    tags: {
+      name: 'projects_create'
+    }
+  });
+  const replayResponse = http.post(`${getApiOrigin()}/api/projects`, payload, {
+    headers,
+    ...withExpectedStatuses(201),
+    tags: {
+      name: 'projects_create'
+    }
+  });
 
   check(firstResponse, {
     'first create accepted': (response) => response.status === 201

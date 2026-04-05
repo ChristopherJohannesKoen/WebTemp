@@ -12,6 +12,7 @@ function createConfigService(overrides: Record<string, string> = {}) {
 
 function createMetricsService() {
   return {
+    recordOwnershipEvent: vi.fn(),
     recordIdempotencyEvent: vi.fn(),
     observeIdempotencyCleanup: vi.fn()
   };

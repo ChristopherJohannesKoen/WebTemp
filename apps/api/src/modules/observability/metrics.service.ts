@@ -55,6 +55,12 @@ export class MetricsService {
     labelNames: ['event'],
     registers: [this.registry]
   });
+  private readonly ownershipEventsTotal = new Counter({
+    name: 'ultimate_template_ownership_events_total',
+    help: 'Ownership bootstrap and owner-floor lifecycle events.',
+    labelNames: ['event'],
+    registers: [this.registry]
+  });
   private readonly idempotencyEventsTotal = new Counter({
     name: 'ultimate_template_idempotency_events_total',
     help: 'Idempotency request lifecycle events.',
@@ -108,6 +114,10 @@ export class MetricsService {
 
   recordSecurityEvent(event: string) {
     this.securityEventsTotal.inc({ event });
+  }
+
+  recordOwnershipEvent(event: string) {
+    this.ownershipEventsTotal.inc({ event });
   }
 
   recordIdempotencyEvent(event: string) {
