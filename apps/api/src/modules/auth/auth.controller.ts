@@ -13,7 +13,6 @@ import {
 } from '@nestjs/common';
 import { ApiCookieAuth, ApiHeader, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
-import * as crypto from 'crypto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { SessionGuard } from '../../common/guards/session.guard';
 import type { AuthenticatedRequest } from '../../common/types/authenticated-request';
@@ -182,23 +181,10 @@ export class AuthController {
     return result;
   }
 
-  private readonly sessionEncryptionKey = crypto
-    .createHash('sha256')
-    .update('replace-with-strong-secret')
-    .digest();
-
-  private encryptToken(token: string): string {
-    const iv = crypto.randomBytes(16);
-    const cipher = crypto.createCipheriv('aes-256-ctr', this.sessionEncryptionKey, iv);
-    const encrypted = Buffer.concat([cipher.update(token, 'utf8'), cipher.final()]);
-    return iv.toString('hex') + ':' + encrypted.toString('hex');
-  }
-
   private applySessionCookie(response: Response, token: string, expiresAt: Date) {
-    const encryptedToken = this.encryptToken(token);
     response.cookie(
       this.authService.getCookieName(),
-      encryptedToken,
+      token,
       this.authService.getCookieOptions(expiresAt)
     );
   }

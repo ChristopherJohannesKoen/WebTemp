@@ -77,7 +77,7 @@ describe('AuthController (e2e)', () => {
     expect(response.status).toBe(200);
     expect(response.body.user.email).toBe('owner@example.com');
     expect(setCookieHeader).toBeDefined();
-    expect(setCookieHeader?.[0]).toMatch(/template_session=[^;]+/);
+    expect(setCookieHeader?.[0]).toContain('template_session=session-token');
     expect(setCookieHeader?.[0]).toContain('Path=/');
     expect(setCookieHeader?.[0]).toContain('HttpOnly');
     expect(setCookieHeader?.[0]).toContain('SameSite=Lax');
