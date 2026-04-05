@@ -83,7 +83,11 @@ export function ProjectActions({
           {pendingAction === 'delete' ? 'Deleting...' : 'Delete project'}
         </Button>
       </div>
-      {error ? <p className="text-sm text-rose-600" data-testid="project-actions-error">{error}</p> : null}
+      {error ? (
+        <p className="text-sm text-rose-600" data-testid="project-actions-error">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }

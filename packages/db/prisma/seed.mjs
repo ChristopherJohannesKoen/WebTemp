@@ -57,10 +57,7 @@ async function buildHash(password) {
 
 function isSerializableConflict(error) {
   return Boolean(
-    error &&
-      typeof error === 'object' &&
-      'code' in error &&
-      ['P2002', 'P2034'].includes(error.code)
+    error && typeof error === 'object' && 'code' in error && ['P2002', 'P2034'].includes(error.code)
   );
 }
 
@@ -203,9 +200,7 @@ async function main() {
     }
   }
 
-  console.log(
-    `Seed complete. Owner email: ${owner.email}. Bootstrap state: ${bootstrapStatus}.`
-  );
+  console.log(`Seed complete. Owner email: ${owner.email}. Bootstrap state: ${bootstrapStatus}.`);
 }
 
 main()

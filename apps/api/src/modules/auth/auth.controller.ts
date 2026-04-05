@@ -11,13 +11,7 @@ import {
   UseGuards,
   UseInterceptors
 } from '@nestjs/common';
-import {
-  ApiCookieAuth,
-  ApiHeader,
-  ApiOkResponse,
-  ApiOperation,
-  ApiTags
-} from '@nestjs/swagger';
+import { ApiCookieAuth, ApiHeader, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { SessionGuard } from '../../common/guards/session.guard';
@@ -82,7 +76,10 @@ export class AuthController {
     @Res({ passthrough: true }) response: Response
   ) {
     await this.authService.logout(request.sessionToken, currentUser.id);
-    response.clearCookie(this.authService.getCookieName(), this.authService.getClearCookieOptions());
+    response.clearCookie(
+      this.authService.getCookieName(),
+      this.authService.getClearCookieOptions()
+    );
 
     return { ok: true };
   }
@@ -177,7 +174,10 @@ export class AuthController {
     @Res({ passthrough: true }) response: Response
   ) {
     const result = await this.authService.logoutAll(currentUser);
-    response.clearCookie(this.authService.getCookieName(), this.authService.getClearCookieOptions());
+    response.clearCookie(
+      this.authService.getCookieName(),
+      this.authService.getClearCookieOptions()
+    );
     return result;
   }
 

@@ -78,17 +78,13 @@ export default function () {
     });
   }
 
-  const logoutResponse = http.post(
-    `${getApiOrigin()}/api/auth/logout`,
-    null,
-    {
-      headers: createSessionHeaders(sessionCookie, csrfToken),
-      ...withExpectedStatuses(200),
-      tags: {
-        name: 'auth_logout'
-      }
+  const logoutResponse = http.post(`${getApiOrigin()}/api/auth/logout`, null, {
+    headers: createSessionHeaders(sessionCookie, csrfToken),
+    ...withExpectedStatuses(200),
+    tags: {
+      name: 'auth_logout'
     }
-  );
+  });
   check(logoutResponse, {
     'logout works': (response) => response.status === 200
   });

@@ -12,14 +12,11 @@ type SessionAuth = {
 };
 
 const { API_ORIGIN } = getE2EEnv();
-const sessionCookieName =
-  process.env.SESSION_COOKIE_NAME ?? 'ultimate_template_session';
+const sessionCookieName = process.env.SESSION_COOKIE_NAME ?? 'ultimate_template_session';
 
 function getCookieHeader(response: Response) {
   const setCookieHeader = response.headers.get('set-cookie');
-  const matchedCookie = setCookieHeader?.match(
-    new RegExp(`${sessionCookieName}=([^;]+)`)
-  );
+  const matchedCookie = setCookieHeader?.match(new RegExp(`${sessionCookieName}=([^;]+)`));
 
   if (!matchedCookie?.[1]) {
     throw new Error(`Missing ${sessionCookieName} cookie.`);
@@ -69,11 +66,7 @@ export async function loginViaApi(credentials: Credentials): Promise<SessionAuth
   };
 }
 
-export async function updateUserRoleViaApi(
-  auth: SessionAuth,
-  userId: string,
-  role: Role
-) {
+export async function updateUserRoleViaApi(auth: SessionAuth, userId: string, role: Role) {
   const response = await fetch(`${API_ORIGIN}/api/admin/users/${userId}/role`, {
     method: 'PATCH',
     headers: {

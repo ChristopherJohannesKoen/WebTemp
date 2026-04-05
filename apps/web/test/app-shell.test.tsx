@@ -49,30 +49,26 @@ describe('AppShell', () => {
     expect(screen.getByRole('link', { name: 'Admin' })).toBeTruthy();
   });
 
-  it(
-    'passes automated axe checks for the dashboard shell',
-    async () => {
-      const { container } = render(
-        <AppShell
-          currentUser={{
-            id: 'user_owner',
-            email: 'owner@example.com',
-            name: 'Template Owner',
-            role: 'owner'
-          }}
-        >
-          <div>Dashboard</div>
-        </AppShell>
-      );
+  it('passes automated axe checks for the dashboard shell', async () => {
+    const { container } = render(
+      <AppShell
+        currentUser={{
+          id: 'user_owner',
+          email: 'owner@example.com',
+          name: 'Template Owner',
+          role: 'owner'
+        }}
+      >
+        <div>Dashboard</div>
+      </AppShell>
+    );
 
-      const results = await axe.run(container, {
-        rules: {
-          'color-contrast': { enabled: false }
-        }
-      });
+    const results = await axe.run(container, {
+      rules: {
+        'color-contrast': { enabled: false }
+      }
+    });
 
-      expect(results.violations).toHaveLength(0);
-    },
-    15000
-  );
+    expect(results.violations).toHaveLength(0);
+  }, 15000);
 });

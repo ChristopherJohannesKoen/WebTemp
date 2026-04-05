@@ -53,8 +53,7 @@ test('lets the owner create, edit, archive, restore, and delete a project', asyn
   await Promise.all([
     page.waitForResponse(
       (response) =>
-        response.url().includes('/api/projects') &&
-        response.request().method() === 'POST'
+        response.url().includes('/api/projects') && response.request().method() === 'POST'
     ),
     page.getByTestId('project-submit').click()
   ]);
@@ -212,7 +211,9 @@ test('blocks a member from mutating an owner project but allows editing their ow
   await expect(page.getByRole('heading', { name: 'No matching projects' })).toBeVisible();
 });
 
-test('renders the protected-route error boundary for upstream project failures', async ({ page }) => {
+test('renders the protected-route error boundary for upstream project failures', async ({
+  page
+}) => {
   await signIn(page, seededUsers.owner);
   await page.goto('/app/projects');
 

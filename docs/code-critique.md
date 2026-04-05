@@ -159,16 +159,16 @@ Security regressions tend to cluster around origin rules, CSRF, auth semantics, 
 
 ## Remediation mapping
 
-| Finding | Status |
-| --- | --- |
-| Owner bootstrap race | Closed |
-| Permissive origin handling | Closed |
-| Over-fetching creator rows | Closed |
-| Unused `SESSION_SECRET` contract | Closed |
-| Session write amplification | Closed |
-| `401` vs `403` auth semantics | Closed |
-| Export contract clarity | Closed |
-| Security-focused coverage depth | Partially addressed |
+| Finding                          | Status              |
+| -------------------------------- | ------------------- |
+| Owner bootstrap race             | Closed              |
+| Permissive origin handling       | Closed              |
+| Over-fetching creator rows       | Closed              |
+| Unused `SESSION_SECRET` contract | Closed              |
+| Session write amplification      | Closed              |
+| `401` vs `403` auth semantics    | Closed              |
+| Export contract clarity          | Closed              |
+| Security-focused coverage depth  | Partially addressed |
 
 ---
 

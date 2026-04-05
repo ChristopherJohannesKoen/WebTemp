@@ -30,7 +30,10 @@ export class CsrfMiddleware implements NestMiddleware {
 
     if (
       candidateHash.length !== request.currentSession.csrfTokenHash.length ||
-      !timingSafeEqual(Buffer.from(request.currentSession.csrfTokenHash), Buffer.from(candidateHash))
+      !timingSafeEqual(
+        Buffer.from(request.currentSession.csrfTokenHash),
+        Buffer.from(candidateHash)
+      )
     ) {
       this.metricsService.recordSecurityEvent('csrf_invalid');
       throw new ForbiddenException('A valid CSRF token is required.');

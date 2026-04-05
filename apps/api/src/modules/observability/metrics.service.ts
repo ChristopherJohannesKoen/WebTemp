@@ -1,11 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import {
-  collectDefaultMetrics,
-  Counter,
-  Gauge,
-  Histogram,
-  Registry
-} from 'prom-client';
+import { collectDefaultMetrics, Counter, Gauge, Histogram, Registry } from 'prom-client';
 
 type HttpRequestMetric = {
   method: string;
@@ -129,10 +123,7 @@ export class MetricsService {
       { source: metric.source },
       metric.durationMs / 1000
     );
-    this.idempotencyCleanupDeletedTotal.inc(
-      { source: metric.source },
-      metric.deletedCount
-    );
+    this.idempotencyCleanupDeletedTotal.inc({ source: metric.source }, metric.deletedCount);
     this.idempotencyExpiredBacklog.set(metric.remainingExpired);
   }
 

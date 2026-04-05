@@ -52,18 +52,16 @@ const commonResponses = c.responses({
 
 export const apiContract = c.router(
   {
-    health: c.router(
-      {
-        status: {
-          method: 'GET',
-          path: '/health',
-          responses: {
-            200: HealthResponseSchema
-          },
-          summary: 'API and database health status'
-        }
+    health: c.router({
+      status: {
+        method: 'GET',
+        path: '/health',
+        responses: {
+          200: HealthResponseSchema
+        },
+        summary: 'API and database health status'
       }
-    ),
+    }),
     auth: c.router(
       {
         signup: {

@@ -1,7 +1,11 @@
 import { ForbiddenException, Injectable, NestMiddleware } from '@nestjs/common';
 import type { NextFunction, Response } from 'express';
 import { parseAllowedOrigins } from '../config/allowed-origins';
-import { canAllowMissingOrigin, isTestAppEnvironment, normalizeAppEnvironment } from '../config/app-environment';
+import {
+  canAllowMissingOrigin,
+  isTestAppEnvironment,
+  normalizeAppEnvironment
+} from '../config/app-environment';
 import { readBooleanConfig } from '../config/boolean-config';
 import type { AuthenticatedRequest } from '../types/authenticated-request';
 import { MetricsService } from '../../modules/observability/metrics.service';

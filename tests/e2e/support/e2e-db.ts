@@ -178,10 +178,7 @@ export async function ensureE2EDatabaseExists() {
     const escapedName = databaseName.replaceAll('"', '""');
     await prisma.$executeRawUnsafe(`CREATE DATABASE "${escapedName}"`);
   } catch (error) {
-    if (
-      !(error instanceof Error) ||
-      !error.message.includes('already exists')
-    ) {
+    if (!(error instanceof Error) || !error.message.includes('already exists')) {
       throw error;
     }
   } finally {
@@ -260,7 +257,10 @@ export async function resetDatabase(mode: ResetMode) {
   }
 }
 
-export async function addProjectsForPagination(count: number, creatorEmail = seedUsers.owner.email) {
+export async function addProjectsForPagination(
+  count: number,
+  creatorEmail = seedUsers.owner.email
+) {
   const prisma = createPrismaClient();
 
   try {

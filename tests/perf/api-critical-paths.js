@@ -63,9 +63,7 @@ export default function () {
     'auth/sessions returns 200': (response) => response.status === 200
   });
 
-  const secondSessionId = sessionsResponse
-    .json('items')
-    .find((entry) => !entry.isCurrent)?.id;
+  const secondSessionId = sessionsResponse.json('items').find((entry) => !entry.isCurrent)?.id;
 
   if (secondSessionId) {
     const revokeResponse = http.del(

@@ -247,8 +247,8 @@ export function getPrometheusCounterValue(metricsText, metricName, labels = {}) 
     }
 
     const labelString = labelsMatch[1] ?? '';
-    const matchesAllLabels = labelEntries.every(
-      ([key, value]) => labelString.includes(`${key}="${value}"`)
+    const matchesAllLabels = labelEntries.every(([key, value]) =>
+      labelString.includes(`${key}="${value}"`)
     );
 
     if (matchesAllLabels) {

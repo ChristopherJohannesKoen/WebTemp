@@ -40,7 +40,9 @@ function clearCsrfToken() {
 }
 
 function createIdempotencyKey() {
-  return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  return (
+    globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`
+  );
 }
 
 async function withApiErrors<T>(operation: () => Promise<T>) {

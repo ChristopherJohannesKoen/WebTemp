@@ -18,7 +18,11 @@ export function ProjectDetailClient({ project: initialProject }: { project: Proj
             <Badge data-testid="project-detail-status" tone={projectTone(project.status)}>
               {project.status}
             </Badge>
-            {project.isArchived ? <Badge data-testid="project-detail-archived" tone="rose">archived</Badge> : null}
+            {project.isArchived ? (
+              <Badge data-testid="project-detail-archived" tone="rose">
+                archived
+              </Badge>
+            ) : null}
           </div>
           <h1
             className="mt-4 text-4xl font-black tracking-tight text-slate-950"

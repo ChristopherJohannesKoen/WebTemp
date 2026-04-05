@@ -42,10 +42,7 @@ describe('SessionService', () => {
     const prismaService = {
       session: {
         findUnique: vi.fn().mockResolvedValue(sessionRecord),
-        updateMany: vi
-          .fn()
-          .mockResolvedValueOnce({ count: 1 })
-          .mockResolvedValueOnce({ count: 0 })
+        updateMany: vi.fn().mockResolvedValueOnce({ count: 1 }).mockResolvedValueOnce({ count: 0 })
       }
     };
 
@@ -71,9 +68,7 @@ describe('SessionService', () => {
     ]);
 
     expect(prismaService.session.updateMany).toHaveBeenCalledTimes(2);
-    expect(
-      [firstResult?.rotatedToken, secondResult?.rotatedToken].filter(Boolean)
-    ).toHaveLength(1);
+    expect([firstResult?.rotatedToken, secondResult?.rotatedToken].filter(Boolean)).toHaveLength(1);
     expect(metricsService.recordSessionEvent).toHaveBeenCalledWith('touched');
     expect(metricsService.recordSessionEvent).toHaveBeenCalledWith('rotated');
   });

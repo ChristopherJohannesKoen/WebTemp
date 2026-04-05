@@ -15,9 +15,7 @@ export function AppShell({
     { href: '/app', label: 'Overview' },
     { href: '/app/projects', label: 'Projects' },
     { href: '/app/settings', label: 'Settings' },
-    ...(canSeeAdminNav(currentUser.role)
-      ? [{ href: '/app/admin/users', label: 'Admin' }]
-      : [])
+    ...(canSeeAdminNav(currentUser.role) ? [{ href: '/app/admin/users', label: 'Admin' }] : [])
   ];
 
   return (

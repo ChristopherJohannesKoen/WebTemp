@@ -17,7 +17,10 @@ export function normalizeAppEnvironment(
   rawAppEnvironment: unknown,
   nodeEnvironment: string | undefined
 ): AppEnvironment {
-  if (typeof rawAppEnvironment === 'string' && appEnvironmentValues.includes(rawAppEnvironment as AppEnvironment)) {
+  if (
+    typeof rawAppEnvironment === 'string' &&
+    appEnvironmentValues.includes(rawAppEnvironment as AppEnvironment)
+  ) {
     return rawAppEnvironment as AppEnvironment;
   }
 

@@ -102,9 +102,7 @@ function getAnchors(filePath) {
   const headingMatches = contents.matchAll(/^(#{1,6})\s+(.+)$/gm);
 
   for (const match of headingMatches) {
-    const headingText = match[2]
-      ?.replace(/\s+#+\s*$/, '')
-      .trim();
+    const headingText = match[2]?.replace(/\s+#+\s*$/, '').trim();
 
     if (!headingText) {
       continue;

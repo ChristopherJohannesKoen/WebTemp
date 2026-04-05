@@ -10,7 +10,4 @@ const compat = new FlatCompat({
   baseDirectory: __dirname
 });
 
-export default [
-  ...baseConfig,
-  ...compat.extends('next/core-web-vitals')
-];
+export default [...baseConfig, ...compat.extends('next/core-web-vitals')];

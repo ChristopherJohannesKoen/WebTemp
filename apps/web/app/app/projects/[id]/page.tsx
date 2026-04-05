@@ -7,11 +7,7 @@ export const dynamic = 'force-dynamic';
 
 type Params = Promise<{ id: string }>;
 
-export default async function ProjectDetailPage({
-  params
-}: {
-  params: Params;
-}) {
+export default async function ProjectDetailPage({ params }: { params: Params }) {
   const { id } = await params;
 
   try {

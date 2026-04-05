@@ -3,7 +3,10 @@ import type { Response } from 'express';
 import type { ProjectListResponse, SessionUser } from '@packages/shared';
 import { ConfigService } from '@nestjs/config';
 import { Prisma, ProjectStatus } from '@prisma/client';
-import { projectWithCreatorSelect, type ProjectWithCreatorRecord } from '../../common/prisma/public-selects';
+import {
+  projectWithCreatorSelect,
+  type ProjectWithCreatorRecord
+} from '../../common/prisma/public-selects';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { decodeProjectCursor, encodeProjectCursor } from './project-cursor';
@@ -58,19 +61,17 @@ export class ProjectsService {
 
     if (total > this.getExportSyncLimit()) {
       const message = `Filtered export exceeds the synchronous export limit of ${this.getExportSyncLimit()} rows. Narrow the filters or add async exports.`;
-      throw new BadRequestException(
-        {
-          message,
-          code: 'export_limit_exceeded',
-          errors: [
-            {
-              field: 'request',
-              code: 'export_limit_exceeded',
-              message
-            }
-          ]
-        }
-      );
+      throw new BadRequestException({
+        message,
+        code: 'export_limit_exceeded',
+        errors: [
+          {
+            field: 'request',
+            code: 'export_limit_exceeded',
+            message
+          }
+        ]
+      });
     }
 
     response.write(

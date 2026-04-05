@@ -77,7 +77,9 @@ test.describe('admin concurrency and stale-role enforcement', () => {
       ]).then(([response]) => response)
     ]);
 
-    const statuses = [firstResponse.status(), secondResponse.status()].sort((left, right) => left - right);
+    const statuses = [firstResponse.status(), secondResponse.status()].sort(
+      (left, right) => left - right
+    );
 
     expect(statuses[0]).toBe(200);
     expect([403, 409]).toContain(statuses[1] ?? 0);

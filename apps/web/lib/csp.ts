@@ -52,11 +52,7 @@ export function buildContentSecurityPolicy({
   styleHashes
 }: CspOptions) {
   const isDevelopment = environment === 'development';
-  const connectSources = unique([
-    "'self'",
-    apiOrigin,
-    ...(isDevelopment ? ['ws:', 'wss:'] : [])
-  ]);
+  const connectSources = unique(["'self'", apiOrigin, ...(isDevelopment ? ['ws:', 'wss:'] : [])]);
   const resolvedStyleSources = getStyleSources({
     environment,
     nonce,

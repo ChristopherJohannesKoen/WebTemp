@@ -24,7 +24,9 @@ test('lets the owner promote a member to admin and grants admin console access',
   await page.goto('/app/admin/users');
   const promotedMemberCard = page.getByTestId(`admin-user-${seededUsers.member.email}`);
   await expect(page.getByRole('heading', { name: 'Users' })).toBeVisible();
-  await expect(promotedMemberCard.getByText('Owners can change roles. Admins are read-only here.')).toBeVisible();
+  await expect(
+    promotedMemberCard.getByText('Owners can change roles. Admins are read-only here.')
+  ).toBeVisible();
 });
 
 test('shows the forbidden page when a member opens the admin console', async ({ page }) => {

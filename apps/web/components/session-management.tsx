@@ -136,7 +136,11 @@ export function SessionManagement({ sessions }: { sessions: SessionSummary[] }) 
         ))}
       </div>
 
-      {error ? <p className="text-sm text-rose-600" data-testid="session-management-error">{error}</p> : null}
+      {error ? (
+        <p className="text-sm text-rose-600" data-testid="session-management-error">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }

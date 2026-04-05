@@ -32,8 +32,7 @@ export async function signUp(page: Page, payload: SignupPayload) {
   await Promise.all([
     page.waitForResponse(
       (candidate) =>
-        candidate.url().includes('/api/auth/signup') &&
-        candidate.request().method() === 'POST'
+        candidate.url().includes('/api/auth/signup') && candidate.request().method() === 'POST'
     ),
     page.getByTestId('sign-up-submit').click()
   ]);

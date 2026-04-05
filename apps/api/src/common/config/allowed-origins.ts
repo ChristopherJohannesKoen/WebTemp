@@ -5,7 +5,9 @@ function normalizeOrigin(origin: string) {
 }
 
 export function parseAllowedOrigins(rawOrigins: Array<string | undefined | null>) {
-  return [...new Set(rawOrigins.filter((value): value is string => Boolean(value)).map(normalizeOrigin))];
+  return [
+    ...new Set(rawOrigins.filter((value): value is string => Boolean(value)).map(normalizeOrigin))
+  ];
 }
 
 export function getAllowedOrigins(configService: ConfigService) {

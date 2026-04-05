@@ -40,7 +40,11 @@ export function ProfileForm({ user }: { user: UserSummary }) {
       <Field hint="Roles are assigned in the admin console." label="Role">
         <Input defaultValue={user.role} disabled name="role" />
       </Field>
-      {error ? <p className="text-sm text-rose-600" data-testid="profile-error">{error}</p> : null}
+      {error ? (
+        <p className="text-sm text-rose-600" data-testid="profile-error">
+          {error}
+        </p>
+      ) : null}
       <Button data-testid="profile-save" disabled={pending} type="submit">
         {pending ? 'Saving...' : 'Save profile'}
       </Button>

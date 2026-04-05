@@ -74,7 +74,10 @@ function assertRequiredWhenEnabled(
 export function validateEnvironment(rawEnvironment: Environment) {
   const normalizedRawEnvironment = {
     ...rawEnvironment,
-    APP_ENV: normalizeAppEnvironment(rawEnvironment.APP_ENV, String(rawEnvironment.NODE_ENV ?? 'development'))
+    APP_ENV: normalizeAppEnvironment(
+      rawEnvironment.APP_ENV,
+      String(rawEnvironment.NODE_ENV ?? 'development')
+    )
   };
 
   const { error, value } = environmentSchema.validate(normalizedRawEnvironment, {
@@ -96,11 +99,18 @@ export function validateEnvironment(rawEnvironment: Environment) {
     const { error: originError } = Joi.string().uri().validate(origin);
 
     if (originError) {
-      throw new Error(`Environment validation failed: ALLOWED_ORIGINS contains an invalid origin: ${origin}`);
+      throw new Error(
+        `Environment validation failed: ALLOWED_ORIGINS contains an invalid origin: ${origin}`
+      );
     }
   }
 
-  assertRequiredWhenEnabled(value, 'FEATURE_EMAIL', ['SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASSWORD']);
+  assertRequiredWhenEnabled(value, 'FEATURE_EMAIL', [
+    'SMTP_HOST',
+    'SMTP_PORT',
+    'SMTP_USER',
+    'SMTP_PASSWORD'
+  ]);
   assertRequiredWhenEnabled(value, 'FEATURE_STORAGE', [
     'S3_BUCKET',
     'S3_REGION',

@@ -74,7 +74,11 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Sea
           >
             Export CSV
           </Link>
-          <Link className={buttonClassName({})} data-testid="project-new-link" href="/app/projects/new">
+          <Link
+            className={buttonClassName({})}
+            data-testid="project-new-link"
+            href="/app/projects/new"
+          >
             New project
           </Link>
         </div>
@@ -133,11 +137,7 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Sea
       ) : (
         <div className="grid gap-4 xl:grid-cols-2">
           {projects.items.map((project) => (
-            <Card
-              data-project-name={project.name}
-              data-testid="project-card"
-              key={project.id}
-            >
+            <Card data-project-name={project.name} data-testid="project-card" key={project.id}>
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="space-y-3">
                   <div className="flex flex-wrap gap-2">

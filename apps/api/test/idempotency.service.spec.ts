@@ -127,9 +127,7 @@ describe('IdempotencyService', () => {
         fingerprint: '{"body":{"name":"current"}}'
       })
     ).rejects.toBeInstanceOf(ConflictException);
-    expect(metricsService.recordIdempotencyEvent).toHaveBeenCalledWith(
-      'fingerprint_mismatch'
-    );
+    expect(metricsService.recordIdempotencyEvent).toHaveBeenCalledWith('fingerprint_mismatch');
   });
 
   it('cleans up expired requests in bounded batches and records metrics', async () => {

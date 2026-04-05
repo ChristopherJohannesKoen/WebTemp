@@ -7,7 +7,14 @@ import { ForgotPasswordForm } from '../components/forgot-password-form';
 import { ResetPasswordForm } from '../components/reset-password-form';
 import { ApiRequestError } from '../lib/api-error';
 
-const { signInMock, signUpMock, requestPasswordResetMock, resetPasswordMock, routerPushMock, routerRefreshMock } = vi.hoisted(() => ({
+const {
+  signInMock,
+  signUpMock,
+  requestPasswordResetMock,
+  resetPasswordMock,
+  routerPushMock,
+  routerRefreshMock
+} = vi.hoisted(() => ({
   signInMock: vi.fn(),
   signUpMock: vi.fn(),
   requestPasswordResetMock: vi.fn(),
@@ -70,21 +77,17 @@ describe('auth forms', () => {
     );
   });
 
-  it(
-    'passes automated axe checks for the sign-in form',
-    async () => {
-      const { container } = render(<SignInForm />);
+  it('passes automated axe checks for the sign-in form', async () => {
+    const { container } = render(<SignInForm />);
 
-      const results = await axe.run(container, {
-        rules: {
-          'color-contrast': { enabled: false }
-        }
-      });
+    const results = await axe.run(container, {
+      rules: {
+        'color-contrast': { enabled: false }
+      }
+    });
 
-      expect(results.violations).toHaveLength(0);
-    },
-    15000
-  );
+    expect(results.violations).toHaveLength(0);
+  }, 15000);
 
   it('associates field errors with controls on signup failures', async () => {
     signUpMock.mockRejectedValueOnce(

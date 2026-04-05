@@ -6,31 +6,31 @@ For local performance validation, layer `.env.perf.example` or an untracked `.en
 
 ## Core App Variables
 
-| Variable               | Purpose                                                | Default                     |
-| ---------------------- | ------------------------------------------------------ | --------------------------- |
-| `NODE_ENV`             | runtime mode                                           | `development`               |
-| `APP_ENV`              | deployment-security mode: `local`, `test`, `staging`, or `production` | derived from `NODE_ENV` |
-| `APP_URL`              | public web origin used by CORS and password reset URLs | `http://localhost:3000`     |
-| `API_ORIGIN`           | server-to-server origin for the Nest API               | `http://localhost:4000`     |
-| `ALLOWED_ORIGINS`      | extra comma-separated web origins for LAN/prod access  | empty                       |
-| `ALLOW_MISSING_ORIGIN_FOR_DEV` | explicit local-dev escape hatch for missing `Origin`/`Referer` | `false`           |
-| `API_PORT`             | Nest listen port                                       | `4000`                      |
-| `API_PREFIX`           | global API prefix                                      | `api`                       |
-| `WEB_PORT`             | web container port                                     | `3000`                      |
-| `CSP_REPORT_ONLY`      | emit an additional strict report-only CSP header for rollout/debug validation | `false`            |
-| `CSP_REPORT_URI`       | optional CSP reporting target used with report-only mode | empty                     |
-| `SESSION_COOKIE_NAME`  | session cookie key                                     | `ultimate_template_session` |
-| `SESSION_ROTATION_MS`  | session token rotation window                          | `43200000`                  |
-| `SESSION_TOUCH_INTERVAL_MS` | interval before authenticated requests touch session freshness | `600000`          |
-| `SESSION_MAX_ACTIVE`   | maximum concurrent sessions per user                   | `5`                         |
-| `ARGON2_MEMORY_COST`   | password hashing memory cost                           | `19456`                     |
-| `RATE_LIMIT_WINDOW_MS` | throttle window                                        | `60000`                     |
-| `RATE_LIMIT_MAX`       | throttle ceiling per window                            | `120`                       |
-| `IDEMPOTENCY_TTL_SECONDS` | replay window for protected POST requests          | `86400`                     |
-| `IDEMPOTENCY_CLEANUP_INTERVAL_MS` | interval between scheduled expired-request cleanup runs | `900000`          |
-| `IDEMPOTENCY_CLEANUP_BATCH_SIZE` | max expired idempotency rows deleted per cleanup run | `500`               |
-| `EXPORT_SYNC_LIMIT`    | max synchronous CSV export size                        | `5000`                      |
-| `EXPOSE_DEV_RESET_DETAILS` | return password reset token/url in local non-prod workflows | `false`             |
+| Variable                          | Purpose                                                                       | Default                     |
+| --------------------------------- | ----------------------------------------------------------------------------- | --------------------------- |
+| `NODE_ENV`                        | runtime mode                                                                  | `development`               |
+| `APP_ENV`                         | deployment-security mode: `local`, `test`, `staging`, or `production`         | derived from `NODE_ENV`     |
+| `APP_URL`                         | public web origin used by CORS and password reset URLs                        | `http://localhost:3000`     |
+| `API_ORIGIN`                      | server-to-server origin for the Nest API                                      | `http://localhost:4000`     |
+| `ALLOWED_ORIGINS`                 | extra comma-separated web origins for LAN/prod access                         | empty                       |
+| `ALLOW_MISSING_ORIGIN_FOR_DEV`    | explicit local-dev escape hatch for missing `Origin`/`Referer`                | `false`                     |
+| `API_PORT`                        | Nest listen port                                                              | `4000`                      |
+| `API_PREFIX`                      | global API prefix                                                             | `api`                       |
+| `WEB_PORT`                        | web container port                                                            | `3000`                      |
+| `CSP_REPORT_ONLY`                 | emit an additional strict report-only CSP header for rollout/debug validation | `false`                     |
+| `CSP_REPORT_URI`                  | optional CSP reporting target used with report-only mode                      | empty                       |
+| `SESSION_COOKIE_NAME`             | session cookie key                                                            | `ultimate_template_session` |
+| `SESSION_ROTATION_MS`             | session token rotation window                                                 | `43200000`                  |
+| `SESSION_TOUCH_INTERVAL_MS`       | interval before authenticated requests touch session freshness                | `600000`                    |
+| `SESSION_MAX_ACTIVE`              | maximum concurrent sessions per user                                          | `5`                         |
+| `ARGON2_MEMORY_COST`              | password hashing memory cost                                                  | `19456`                     |
+| `RATE_LIMIT_WINDOW_MS`            | throttle window                                                               | `60000`                     |
+| `RATE_LIMIT_MAX`                  | throttle ceiling per window                                                   | `120`                       |
+| `IDEMPOTENCY_TTL_SECONDS`         | replay window for protected POST requests                                     | `86400`                     |
+| `IDEMPOTENCY_CLEANUP_INTERVAL_MS` | interval between scheduled expired-request cleanup runs                       | `900000`                    |
+| `IDEMPOTENCY_CLEANUP_BATCH_SIZE`  | max expired idempotency rows deleted per cleanup run                          | `500`                       |
+| `EXPORT_SYNC_LIMIT`               | max synchronous CSV export size                                               | `5000`                      |
+| `EXPOSE_DEV_RESET_DETAILS`        | return password reset token/url in local non-prod workflows                   | `false`                     |
 
 ## Database Variables
 
@@ -56,12 +56,12 @@ Bootstrap ownership is stored in a singleton `BootstrapState` row. Once establis
 
 The default runtime still needs only web, API, and Postgres. Feature flags make optional integrations explicit and fail fast when enabled without their required credentials.
 
-| Variable                   | Purpose                                           | Default |
-| -------------------------- | ------------------------------------------------- | ------- |
-| `FEATURE_EMAIL`            | enable SMTP-backed email delivery                 | `false` |
-| `FEATURE_STORAGE`          | enable object-storage-backed file flows           | `false` |
-| `FEATURE_CACHE`            | enable cache/queue extensions that require Redis  | `false` |
-| `FEATURE_OBSERVABILITY`    | enable OTLP exporter validation                   | `false` |
+| Variable                | Purpose                                          | Default |
+| ----------------------- | ------------------------------------------------ | ------- |
+| `FEATURE_EMAIL`         | enable SMTP-backed email delivery                | `false` |
+| `FEATURE_STORAGE`       | enable object-storage-backed file flows          | `false` |
+| `FEATURE_CACHE`         | enable cache/queue extensions that require Redis | `false` |
+| `FEATURE_OBSERVABILITY` | enable OTLP exporter validation                  | `false` |
 
 When a feature flag is enabled, the API validates these envs before boot:
 

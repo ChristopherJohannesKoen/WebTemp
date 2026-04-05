@@ -50,9 +50,7 @@ describe('validateEnvironment', () => {
         APP_ENV: 'staging',
         ALLOW_MISSING_ORIGIN_FOR_DEV: 'true'
       })
-    ).toThrow(
-      'ALLOW_MISSING_ORIGIN_FOR_DEV can only be enabled when APP_ENV=local.'
-    );
+    ).toThrow('ALLOW_MISSING_ORIGIN_FOR_DEV can only be enabled when APP_ENV=local.');
   });
 
   it('rejects EXPOSE_DEV_RESET_DETAILS outside local or test app environments', () => {
@@ -62,9 +60,7 @@ describe('validateEnvironment', () => {
         APP_ENV: 'production',
         EXPOSE_DEV_RESET_DETAILS: 'true'
       })
-    ).toThrow(
-      'EXPOSE_DEV_RESET_DETAILS can only be enabled when APP_ENV=local or APP_ENV=test.'
-    );
+    ).toThrow('EXPOSE_DEV_RESET_DETAILS can only be enabled when APP_ENV=local or APP_ENV=test.');
   });
 
   it('allows reset detail exposure in test app environments', () => {

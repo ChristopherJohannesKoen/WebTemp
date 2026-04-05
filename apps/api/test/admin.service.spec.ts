@@ -1,8 +1,5 @@
 import 'reflect-metadata';
-import {
-  ForbiddenException,
-  NotFoundException
-} from '@nestjs/common';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AdminService } from '../src/modules/admin/admin.service';
 

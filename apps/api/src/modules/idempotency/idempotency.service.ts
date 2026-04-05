@@ -50,10 +50,7 @@ export class IdempotencyService {
         recordId: record.id
       };
     } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
-      ) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
         const existingRecord = await this.prismaService.idempotencyRequest.findUnique({
           where: {
             scope_idempotencyKey_method_path: {
@@ -206,8 +203,6 @@ export class IdempotencyService {
   }
 
   private getCleanupBatchSize() {
-    return Number(
-      this.configService.get<string>('IDEMPOTENCY_CLEANUP_BATCH_SIZE', '500')
-    );
+    return Number(this.configService.get<string>('IDEMPOTENCY_CLEANUP_BATCH_SIZE', '500'));
   }
 }

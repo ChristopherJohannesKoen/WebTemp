@@ -71,7 +71,11 @@ export function ProjectForm({ mode, onSaved, project }: ProjectFormProps) {
       </Field>
       <div className="grid gap-5 md:grid-cols-[1fr_auto] md:items-end">
         <Field label="Status">
-          <Select data-testid="project-status" defaultValue={project?.status ?? 'active'} name="status">
+          <Select
+            data-testid="project-status"
+            defaultValue={project?.status ?? 'active'}
+            name="status"
+          >
             <option value="active">Active</option>
             <option value="paused">Paused</option>
             <option value="completed">Completed</option>
@@ -88,7 +92,11 @@ export function ProjectForm({ mode, onSaved, project }: ProjectFormProps) {
           Archive after save
         </label>
       </div>
-      {error ? <p className="text-sm text-rose-600" data-testid="project-form-error">{error}</p> : null}
+      {error ? (
+        <p className="text-sm text-rose-600" data-testid="project-form-error">
+          {error}
+        </p>
+      ) : null}
       <div className="flex flex-wrap gap-3">
         <Button data-testid="project-submit" disabled={pending} type="submit">
           {pending ? 'Saving...' : mode === 'create' ? 'Create project' : 'Save changes'}

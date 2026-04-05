@@ -1,8 +1,4 @@
-import {
-  ConflictException,
-  Injectable,
-  UnauthorizedException
-} from '@nestjs/common';
+import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma, type User } from '@prisma/client';
 import argon2 from 'argon2';
@@ -10,7 +6,10 @@ import { createHash, randomBytes } from 'node:crypto';
 import type { SessionUser } from '@packages/shared';
 import type { AuthenticatedSession } from '../../common/types/authenticated-request';
 import { readBooleanConfig } from '../../common/config/boolean-config';
-import { canExposeResetDetails, normalizeAppEnvironment } from '../../common/config/app-environment';
+import {
+  canExposeResetDetails,
+  normalizeAppEnvironment
+} from '../../common/config/app-environment';
 import { publicUserSelect, type PublicUserRecord } from '../../common/prisma/public-selects';
 import { AuditService } from '../audit/audit.service';
 import { MetricsService } from '../observability/metrics.service';
@@ -62,10 +61,7 @@ export class AuthService {
 
       return this.createAuthResult(user, metadata);
     } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
-      ) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
         throw new ConflictException('An account with this email already exists.');
       }
 
@@ -253,10 +249,7 @@ export class AuthService {
     return this.sessionService.assertCsrfToken(session, rawToken);
   }
 
-  async getSessionContextFromToken(
-    rawToken: string,
-    metadata: SessionMetadata
-  ) {
+  async getSessionContextFromToken(rawToken: string, metadata: SessionMetadata) {
     return this.sessionService.resolveSessionContext(rawToken, metadata);
   }
 
@@ -316,10 +309,7 @@ export class AuthService {
       nodeEnvironment
     );
     const exposeDevResetDetails = readBooleanConfig(
-      this.configService.get<string | boolean>(
-        'EXPOSE_DEV_RESET_DETAILS',
-        false
-      ),
+      this.configService.get<string | boolean>('EXPOSE_DEV_RESET_DETAILS', false),
       false
     );
 

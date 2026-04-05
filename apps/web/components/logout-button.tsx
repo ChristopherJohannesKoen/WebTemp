@@ -37,7 +37,11 @@ export function LogoutButton() {
       >
         {pending ? 'Signing out...' : 'Sign out'}
       </Button>
-      {error ? <p className="text-xs text-rose-300" data-testid="sidebar-sign-out-error">{error}</p> : null}
+      {error ? (
+        <p className="text-xs text-rose-300" data-testid="sidebar-sign-out-error">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }

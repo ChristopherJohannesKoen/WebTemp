@@ -81,9 +81,7 @@ describe('clientApiRequest', () => {
   it('does not replay a generic forbidden mutation', async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValueOnce(
-        jsonResponse({ csrfToken: 'csrf-token-1234567890abcdef123456' })
-      )
+      .mockResolvedValueOnce(jsonResponse({ csrfToken: 'csrf-token-1234567890abcdef123456' }))
       .mockResolvedValueOnce(
         jsonResponse(
           {

@@ -39,7 +39,11 @@ export function RoleForm({ user }: { user: UserSummary }) {
           {pending ? 'Saving...' : 'Update'}
         </Button>
       </div>
-      {error ? <p className="text-xs text-rose-600" data-testid="role-form-error">{error}</p> : null}
+      {error ? (
+        <p className="text-xs text-rose-600" data-testid="role-form-error">
+          {error}
+        </p>
+      ) : null}
     </form>
   );
 }

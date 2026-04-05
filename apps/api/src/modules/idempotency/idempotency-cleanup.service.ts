@@ -1,8 +1,4 @@
-import {
-  Injectable,
-  OnModuleDestroy,
-  OnModuleInit
-} from '@nestjs/common';
+import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SchedulerRegistry } from '@nestjs/schedule';
 import { IdempotencyService } from './idempotency.service';
@@ -56,8 +52,6 @@ export class IdempotencyCleanupService implements OnModuleInit, OnModuleDestroy 
   }
 
   private getCleanupIntervalMs() {
-    return Number(
-      this.configService.get<string>('IDEMPOTENCY_CLEANUP_INTERVAL_MS', '900000')
-    );
+    return Number(this.configService.get<string>('IDEMPOTENCY_CLEANUP_INTERVAL_MS', '900000'));
   }
 }

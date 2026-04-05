@@ -22,7 +22,9 @@ test('serves hardened security headers on public and protected pages', async ({ 
   expect(landingResponse?.headers()['x-frame-options']).toBe('DENY');
   expect(landingResponse?.headers()['x-content-type-options']).toBe('nosniff');
   expect(landingResponse?.headers()['content-security-policy']).toContain("frame-ancestors 'none'");
-  expect(landingResponse?.headers()['content-security-policy']).toContain("script-src 'self' 'nonce-");
+  expect(landingResponse?.headers()['content-security-policy']).toContain(
+    "script-src 'self' 'nonce-"
+  );
   const reportOnlyPolicy = landingResponse?.headers()['content-security-policy-report-only'];
 
   if (reportOnlyPolicy) {

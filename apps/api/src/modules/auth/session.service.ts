@@ -1,8 +1,4 @@
-import {
-  ForbiddenException,
-  Injectable,
-  NotFoundException
-} from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import type { SessionSummary, SessionUser } from '@packages/shared';
@@ -100,9 +96,7 @@ export class SessionService {
     });
 
     return {
-      items: sessions.map((session) =>
-        this.toSessionSummary(session, currentSessionId)
-      )
+      items: sessions.map((session) => this.toSessionSummary(session, currentSessionId))
     };
   }
 
@@ -192,9 +186,7 @@ export class SessionService {
         data: {
           lastUsedAt: now,
           lastRotatedAt: shouldRotate ? now : undefined,
-          tokenHash: candidateRotatedToken
-            ? this.hashToken(candidateRotatedToken)
-            : undefined,
+          tokenHash: candidateRotatedToken ? this.hashToken(candidateRotatedToken) : undefined,
           ipAddress: metadata.ipAddress ?? session.ipAddress ?? null,
           userAgent: metadata.userAgent ?? session.userAgent ?? null
         }
@@ -271,7 +263,9 @@ export class SessionService {
     request.sessionToken = sessionContext.rotatedToken ?? request.sessionToken;
   }
 
-  private toSessionUser(user: Pick<User, 'id' | 'email' | 'name' | 'role'> | PublicUserRecord): SessionUser {
+  private toSessionUser(
+    user: Pick<User, 'id' | 'email' | 'name' | 'role'> | PublicUserRecord
+  ): SessionUser {
     return {
       id: user.id,
       email: user.email,

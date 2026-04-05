@@ -6,10 +6,7 @@ import { readBooleanConfig } from '../../common/config/boolean-config';
 
 export async function initializeOpenTelemetry(configService: ConfigService) {
   if (
-    !readBooleanConfig(
-      configService.get<string | boolean>('FEATURE_OBSERVABILITY', false),
-      false
-    )
+    !readBooleanConfig(configService.get<string | boolean>('FEATURE_OBSERVABILITY', false), false)
   ) {
     return undefined;
   }
@@ -17,9 +14,7 @@ export async function initializeOpenTelemetry(configService: ConfigService) {
   const url = configService.get<string>('OTEL_EXPORTER_OTLP_ENDPOINT');
 
   if (!url) {
-    throw new Error(
-      'FEATURE_OBSERVABILITY is enabled but OTEL_EXPORTER_OTLP_ENDPOINT is missing.'
-    );
+    throw new Error('FEATURE_OBSERVABILITY is enabled but OTEL_EXPORTER_OTLP_ENDPOINT is missing.');
   }
 
   const sdk = new NodeSDK({

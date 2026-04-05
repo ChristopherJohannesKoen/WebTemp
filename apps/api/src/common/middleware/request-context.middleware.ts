@@ -18,7 +18,7 @@ export class RequestContextMiddleware implements NestMiddleware {
       const routePath =
         request.baseUrl && request.route?.path
           ? `${request.baseUrl}${request.route.path}`
-          : request.route?.path ?? request.originalUrl.split('?')[0] ?? null;
+          : (request.route?.path ?? request.originalUrl.split('?')[0] ?? null);
 
       this.metricsService.observeHttpRequest({
         method: request.method,

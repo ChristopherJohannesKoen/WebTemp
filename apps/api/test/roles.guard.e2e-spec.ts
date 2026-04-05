@@ -82,18 +82,14 @@ describe('RolesGuard (e2e)', () => {
   });
 
   it('returns 403 when the authenticated user lacks the required role', async () => {
-    const response = await request(app.getHttpServer())
-      .get('/owner-only')
-      .set('x-role', 'member');
+    const response = await request(app.getHttpServer()).get('/owner-only').set('x-role', 'member');
 
     expect(response.status).toBe(403);
     expect(response.body.message).toBe('You do not have access to this resource.');
   });
 
   it('allows the request when the authenticated user has the required role', async () => {
-    const response = await request(app.getHttpServer())
-      .get('/owner-only')
-      .set('x-role', 'owner');
+    const response = await request(app.getHttpServer()).get('/owner-only').set('x-role', 'owner');
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual({ ok: true });
