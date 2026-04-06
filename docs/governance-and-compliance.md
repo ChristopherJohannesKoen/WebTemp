@@ -79,6 +79,21 @@ This makes the template compatible with:
 - Vault sidecar/file injections
 - cloud secret-manager mount patterns
 
+Recommended rotation order:
+
+1. provision a new versioned secret
+2. update the deployment manifest or secret reference
+3. roll the affected workload
+4. confirm health, auth, and audit behavior
+5. retire the old secret only after the new version is verified
+
+This order applies to:
+
+- `SESSION_COOKIE_ENCRYPTION_KEY`
+- `OIDC_CLIENT_SECRET`
+- `SAML_CERTIFICATE_PEM`
+- `SCIM_BEARER_TOKEN`
+
 ## Evidence Map
 
 The repo now produces compliance-relevant evidence from:
@@ -101,6 +116,9 @@ The repo now produces compliance-relevant evidence from:
   - environment catalog
   - operations guide
   - enterprise identity guide
+
+The explicit repo-owned control mapping is documented in
+[Control And Evidence Matrix](./control-evidence-matrix.md).
 
 ## Remaining Organization-Level Work
 

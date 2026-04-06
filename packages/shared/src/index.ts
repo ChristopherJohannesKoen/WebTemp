@@ -141,6 +141,7 @@ export type AuthResponse = z.infer<typeof AuthResponseSchema>;
 
 export const SsoProvidersResponseSchema = z.object({
   providers: z.array(IdentityProviderSummarySchema),
+  defaultProviderSlug: z.string().nullable().default(null),
   localAuthEnabled: z.boolean(),
   breakGlassEnabled: z.boolean()
 });

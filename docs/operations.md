@@ -46,6 +46,8 @@
 - verify IdP issuer, token, and JWKS endpoints or SAML SSO URL/certificate
 - inspect `ultimate_template_identity_events_total`
 - confirm break-glass policy and owner access path before enabling emergency local auth
+- direct operators to the documented break-glass login mode rather than exposing it as a normal end-user path
+- the documented break-glass entry point is `/login?mode=break-glass`
 
 ### SCIM Drift Or Provisioning Failure
 
@@ -59,6 +61,7 @@
 - confirm whether the access was expected as part of an approved incident
 - inspect audit logs and access-policy events for `auth.break_glass_login`
 - rotate any affected local owner credentials after the incident if policy requires it
+- confirm the primary OIDC provider has been restored before closing the incident
 
 ### Password Reset Trouble
 
@@ -100,3 +103,11 @@
 - run regular Postgres restore drills outside the application repository
 - keep evidence of restore success alongside CI and release evidence
 - never rerun seed in steady-state recovery unless you are rebuilding a brand-new bootstrap environment
+
+## Evidence Review
+
+Use [Control And Evidence Matrix](./control-evidence-matrix.md) as the index for:
+
+- which checks are required in GitHub
+- which artifacts are produced in release workflows
+- which runtime records must be retained for review

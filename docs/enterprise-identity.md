@@ -12,6 +12,13 @@ This template now supports an enterprise-first access model:
 
 The production posture is provider-first. Local email/password remains for bootstrap, local development, and explicit break-glass scenarios only.
 
+For staging and production, the intended baseline is:
+
+- OIDC configured and preferred as the default provider
+- SAML enabled only when a customer or deployment requires it
+- SCIM enabled only when lifecycle automation is required
+- local password auth suppressed from the normal login UX
+
 ## Provider Model
 
 The API stores active provider metadata in `IdentityProviderConfig` and synchronizes it from environment-backed configuration at startup.
@@ -20,6 +27,7 @@ Current template assumptions:
 
 - single-tenant
 - one active default enterprise provider is typical
+- when OIDC is configured, it is the default provider for staging and production
 - `owner` stays manual/local by design
 - group mappings can assign `admin` and `member`
 
@@ -43,8 +51,18 @@ Environment inputs:
 - optional explicit endpoint overrides
 - `OIDC_VERIFIED_DOMAINS`
 - `OIDC_GROUP_ROLE_MAPPINGS`
+- `ENTERPRISE_DEFAULT_PROVIDER_SLUG`
+
+Recommended production posture:
+
+- configure OIDC first
+- set `ENTERPRISE_DEFAULT_PROVIDER_SLUG` to the OIDC provider slug
+- use local auth only for bootstrap and audited recovery
 
 ## SAML
+
+SAML is supported, but it is optional in the baseline. Enable it only when a
+target enterprise deployment requires SAML instead of OIDC.
 
 SAML uses:
 
@@ -65,6 +83,9 @@ Environment inputs:
 - `SAML_GROUP_ROLE_MAPPINGS`
 
 ## SCIM
+
+SCIM is optional and should be enabled only when the deployment needs automated
+joiner/mover/leaver provisioning or group synchronization.
 
 SCIM endpoints live under `/api/scim/v2`.
 
@@ -104,6 +125,13 @@ Behavior:
 Route:
 
 - `POST /api/auth/break-glass/login`
+
+Operational posture:
+
+- break-glass is not the normal login path
+- the login UI should expose it only through an explicit operator-controlled mode
+- recovery guidance should live in the incident runbook, not in ordinary end-user instructions
+- the documented operator entry point is `/login?mode=break-glass`
 
 ## Owner Step-Up
 

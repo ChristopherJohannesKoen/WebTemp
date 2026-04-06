@@ -14,6 +14,9 @@ Production baseline:
 - `infra/k8s/overlays/staging`
 - `infra/k8s/overlays/production`
 
+Use the overlays as the deployable artifacts. The base is a reusable building
+block, not the recommended direct deployment target.
+
 ## Assumptions
 
 - `api` and `web` run as separate deployments

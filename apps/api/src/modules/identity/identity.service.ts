@@ -195,11 +195,17 @@ export class IdentityService implements OnModuleInit {
       where: {
         status: 'active'
       },
-      orderBy: [{ type: 'asc' }, { displayName: 'asc' }]
+      orderBy: [{ updatedAt: 'desc' }]
     });
+    const typedProviders = providers as ProviderRecord[];
+    const defaultProviderSlug = this.resolveDefaultProviderSlug(typedProviders);
+    const orderedProviders = [...typedProviders].sort((left, right) =>
+      this.compareProviders(left, right, defaultProviderSlug)
+    );
 
     return {
-      providers: providers.map((provider) => this.toProviderSummary(provider as ProviderRecord)),
+      providers: orderedProviders.map((provider) => this.toProviderSummary(provider)),
+      defaultProviderSlug,
       localAuthEnabled: !this.isEnterpriseIdentityEnforced(),
       breakGlassEnabled: this.isBreakGlassEnabled()
     };
@@ -247,20 +253,27 @@ export class IdentityService implements OnModuleInit {
     }
 
     const discovery = await this.resolveOidcDiscovery(provider);
-    const tokenResponse = await fetch(discovery.token_endpoint, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/x-www-form-urlencoded'
-      },
-      body: new URLSearchParams({
-        grant_type: 'authorization_code',
-        code: authorizationCode,
-        redirect_uri: this.getProviderCallbackUrl(provider.slug),
-        client_id: provider.clientId ?? '',
-        client_secret: this.getProviderClientSecret(provider),
-        code_verifier: state.verifier
-      }).toString()
-    });
+    let tokenResponse: Response;
+
+    try {
+      tokenResponse = await fetch(discovery.token_endpoint, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/x-www-form-urlencoded'
+        },
+        body: new URLSearchParams({
+          grant_type: 'authorization_code',
+          code: authorizationCode,
+          redirect_uri: this.getProviderCallbackUrl(provider.slug),
+          client_id: provider.clientId ?? '',
+          client_secret: this.getProviderClientSecret(provider),
+          code_verifier: state.verifier
+        }).toString()
+      });
+    } catch {
+      this.metricsService.recordIdentityEvent('oidc_callback_failure');
+      throw new UnauthorizedException('The OIDC token exchange failed.');
+    }
 
     if (!tokenResponse.ok) {
       this.metricsService.recordIdentityEvent('oidc_callback_failure');
@@ -275,11 +288,19 @@ export class IdentityService implements OnModuleInit {
       throw new UnauthorizedException('The OIDC token response did not include an id_token.');
     }
 
-    const keySet = createRemoteJWKSet(new URL(discovery.jwks_uri));
-    const { payload } = await jwtVerify(tokenPayload.id_token, keySet, {
-      issuer: provider.issuer ?? discovery.issuer,
-      audience: provider.clientId ?? undefined
-    });
+    let payload: Record<string, unknown>;
+
+    try {
+      const keySet = createRemoteJWKSet(new URL(discovery.jwks_uri));
+      const verification = await jwtVerify(tokenPayload.id_token, keySet, {
+        issuer: provider.issuer ?? discovery.issuer,
+        audience: provider.clientId ?? undefined
+      });
+      payload = verification.payload as Record<string, unknown>;
+    } catch {
+      this.metricsService.recordIdentityEvent('oidc_callback_failure');
+      throw new UnauthorizedException('The OIDC identity token could not be validated.');
+    }
 
     if (state.nonce && payload.nonce !== state.nonce) {
       throw new UnauthorizedException('The OIDC nonce validation failed.');
@@ -907,7 +928,7 @@ export class IdentityService implements OnModuleInit {
   }
 
   private async getScimProvider() {
-    const defaultSlug = this.configService.get<string>('ENTERPRISE_DEFAULT_PROVIDER_SLUG');
+    const defaultSlug = this.getConfiguredDefaultProviderSlug();
     const provider =
       (defaultSlug
         ? await this.prismaService.identityProviderConfig.findUnique({
@@ -1555,6 +1576,54 @@ export class IdentityService implements OnModuleInit {
       type: provider.type,
       status: provider.status
     });
+  }
+
+  private getConfiguredDefaultProviderSlug() {
+    const defaultProviderSlug = this.configService.get<string>('ENTERPRISE_DEFAULT_PROVIDER_SLUG');
+    return defaultProviderSlug?.trim() || null;
+  }
+
+  private resolveDefaultProviderSlug(providers: ProviderRecord[]) {
+    const configuredDefaultProviderSlug = this.getConfiguredDefaultProviderSlug();
+
+    if (configuredDefaultProviderSlug) {
+      const configuredProvider = providers.find(
+        (provider) => provider.slug === configuredDefaultProviderSlug
+      );
+
+      if (configuredProvider) {
+        return configuredProvider.slug;
+      }
+    }
+
+    const oidcProvider = providers.find((provider) => provider.type === 'oidc');
+    return oidcProvider?.slug ?? providers[0]?.slug ?? null;
+  }
+
+  private compareProviders(
+    left: ProviderRecord,
+    right: ProviderRecord,
+    defaultProviderSlug: string | null
+  ) {
+    if (left.slug === defaultProviderSlug && right.slug !== defaultProviderSlug) {
+      return -1;
+    }
+
+    if (right.slug === defaultProviderSlug && left.slug !== defaultProviderSlug) {
+      return 1;
+    }
+
+    if (left.type !== right.type) {
+      if (left.type === 'oidc') {
+        return -1;
+      }
+
+      if (right.type === 'oidc') {
+        return 1;
+      }
+    }
+
+    return left.displayName.localeCompare(right.displayName);
   }
 
   private toSessionUser(

@@ -20,6 +20,19 @@ for (const [envPath, override] of [
   }
 }
 
+const profile = process.env.E2E_PROFILE?.trim();
+
+if (profile) {
+  for (const envPath of [
+    path.join(rootDir, `.env.e2e.${profile}.example`),
+    path.join(rootDir, `.env.e2e.${profile}`)
+  ]) {
+    if (existsSync(envPath)) {
+      loadEnv({ path: envPath, override: true });
+    }
+  }
+}
+
 const [command, ...args] = process.argv.slice(2);
 
 if (!command) {

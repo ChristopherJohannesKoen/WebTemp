@@ -63,6 +63,13 @@ Bootstrap ownership is stored in a singleton `BootstrapState` row. Once establis
 
 Enterprise identity turns on through `ENTERPRISE_IDENTITY_ENABLED=true` or by configuring an enterprise provider directly.
 
+Recommended enterprise baseline:
+
+- configure OIDC first
+- set `ENTERPRISE_DEFAULT_PROVIDER_SLUG` to the OIDC provider slug
+- add SAML only when required by a target deployment
+- add SCIM only when provisioning automation is needed
+
 Core toggles:
 
 - `ENTERPRISE_IDENTITY_ENABLED`
@@ -132,6 +139,8 @@ When a feature flag is enabled, the API validates these envs before boot:
 - `SESSION_COOKIE_ENCRYPTION_KEY` and `SSO_STATE_ENCRYPTION_KEY` may be provided through direct env values or `*_FILE` secret mounts.
 - Password reset details are never exposed by default. Set `EXPOSE_DEV_RESET_DETAILS=true` only for explicit `APP_ENV=local` or `APP_ENV=test` workflows.
 - When enterprise identity is enabled in `APP_ENV=staging` or `APP_ENV=production`, local signup/login/reset flows are disabled unless break-glass is explicitly enabled.
+- `ENTERPRISE_DEFAULT_PROVIDER_SLUG` is required for staging and production enterprise deployments.
+- When OIDC and SAML are both configured for staging or production, the default provider must remain the OIDC provider.
 - `GET /api/projects/export.csv` streams the full filtered result or returns a structured `400` with `export_limit_exceeded`.
 - `GET /api/metrics` exposes Prometheus text metrics. OTLP tracing remains optional behind `FEATURE_OBSERVABILITY`.
 - Use `ALLOWED_ORIGINS` when the site must be reached from a LAN IP or a second browser origin in development.

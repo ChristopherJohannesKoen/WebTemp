@@ -15,8 +15,9 @@ The goal is not "secure enough for a demo." The goal is a repeatable default tha
 The website now also participates in the enterprise identity posture:
 
 - provider-first login discovery
+- explicit default-provider semantics from the `sso/providers` contract
 - local-auth suppression when enterprise identity is enforced
-- explicit break-glass affordances only when policy allows them
+- explicit break-glass affordances only through a documented operator mode
 - owner step-up UX before role-sensitive admin actions
 
 ## Reference Baseline
@@ -172,9 +173,9 @@ Role checks should flow through capability helpers in the web layer rather than 
 
 When enterprise identity is enabled:
 
-- enterprise providers are shown first on `/login`
+- the default provider is shown first on `/login`, with OIDC preferred when configured
 - local signup and reset routes are redirected away when policy disables them
-- break-glass local login is rendered only when explicitly enabled
+- break-glass local login is rendered only when explicitly enabled and explicitly requested
 - owner role changes require a step-up round trip from the browser
 
 ## Auth Form Accessibility

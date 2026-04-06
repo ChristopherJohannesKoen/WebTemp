@@ -19,6 +19,7 @@
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "test:e2e": "node ./scripts/with-e2e-env.mjs playwright test",
+    "test:e2e:enterprise": "node ./scripts/with-enterprise-e2e-env.mjs playwright test tests/e2e/enterprise-login.spec.ts",
     "test:e2e:headed": "node ./scripts/with-e2e-env.mjs playwright test --headed",
     "test:e2e:ui": "node ./scripts/with-e2e-env.mjs playwright test --ui",
     "test:perf:auth": "node ./scripts/with-perf-env.mjs k6 run tests/perf/auth-session-churn.js",

@@ -12,17 +12,30 @@ import { FieldErrorMessage, FormErrorMessage } from './form-feedback';
 
 type SignInFormProps = {
   providers: IdentityProviderSummary[];
+  defaultProviderSlug: string | null;
   localAuthEnabled: boolean;
   breakGlassEnabled: boolean;
+  breakGlassMode?: boolean;
 };
 
-export function SignInForm({ providers, localAuthEnabled, breakGlassEnabled }: SignInFormProps) {
+export function SignInForm({
+  providers,
+  defaultProviderSlug,
+  localAuthEnabled,
+  breakGlassEnabled,
+  breakGlassMode = false
+}: SignInFormProps) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string>();
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-  const breakGlassOnly = !localAuthEnabled && breakGlassEnabled;
-  const showLocalForm = localAuthEnabled || breakGlassEnabled;
+  const primaryProvider =
+    providers.find((provider) => provider.slug === defaultProviderSlug) ?? providers[0];
+  const secondaryProviders = providers.filter(
+    (provider) => provider.slug !== primaryProvider?.slug
+  );
+  const breakGlassOnly = breakGlassMode;
+  const showLocalForm = localAuthEnabled || breakGlassMode;
 
   async function handleSubmit(formData: FormData) {
     setPending(true);
@@ -56,30 +69,53 @@ export function SignInForm({ providers, localAuthEnabled, breakGlassEnabled }: S
       <div className="space-y-2">
         <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Access your app</p>
         <h1 className="text-3xl font-black text-slate-950">
-          {providers.length > 0 ? 'Enterprise sign in' : 'Sign in'}
+          {breakGlassMode
+            ? 'Break-glass sign in'
+            : providers.length > 0
+              ? 'Enterprise sign in'
+              : 'Sign in'}
         </h1>
         <p className="text-sm text-slate-600">
-          {providers.length > 0
-            ? 'Use your enterprise identity provider first. Local credentials stay available only when the environment policy allows them.'
-            : 'Sign in with an existing account.'}
+          {breakGlassMode
+            ? 'Emergency owner access is audited and should only be used through the documented incident procedure.'
+            : providers.length > 0
+              ? 'Use your enterprise identity provider first. Local credentials stay available only when the environment policy allows them.'
+              : 'Sign in with an existing account.'}
         </p>
       </div>
-      {providers.length > 0 ? (
+      {primaryProvider && !breakGlassMode ? (
         <div className="mt-6 grid gap-3">
-          {providers.map((provider) => (
-            <a
-              className={buttonClassName({ variant: 'secondary' })}
-              data-testid={`sso-provider-${provider.slug}`}
-              href={`/api/auth/sso/${provider.slug}/start?redirectTo=%2Fapp`}
-              key={provider.slug}
-            >
-              Continue with {provider.displayName}
-            </a>
-          ))}
+          <a
+            className={buttonClassName({})}
+            data-testid={`sso-provider-${primaryProvider.slug}`}
+            href={`/api/auth/sso/${primaryProvider.slug}/start?redirectTo=%2Fapp`}
+          >
+            Continue with {primaryProvider.displayName}
+          </a>
+          {secondaryProviders.length > 0 ? (
+            <div className="grid gap-2">
+              <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
+                Other enterprise providers
+              </p>
+              {secondaryProviders.map((provider) => (
+                <a
+                  className={buttonClassName({ variant: 'secondary' })}
+                  data-testid={`sso-provider-${provider.slug}`}
+                  href={`/api/auth/sso/${provider.slug}/start?redirectTo=%2Fapp`}
+                  key={provider.slug}
+                >
+                  Continue with {provider.displayName}
+                </a>
+              ))}
+            </div>
+          ) : null}
         </div>
       ) : null}
       {showLocalForm ? (
         <form action={handleSubmit} className="mt-6 grid gap-4" data-testid="sign-in-form">
+          {providers.length > 0 && !breakGlassMode ? (
+            <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Local access</p>
+          ) : null}
           <Field hint="Example: you@example.com" label="Email">
             <>
               <Input
@@ -137,9 +173,20 @@ export function SignInForm({ providers, localAuthEnabled, breakGlassEnabled }: S
           </Button>
         </form>
       ) : (
-        <p className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-          Local password sign-in is disabled for this environment.
-        </p>
+        <div className="mt-6 grid gap-3">
+          <p className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+            Local password sign-in is disabled for this environment.
+          </p>
+          {breakGlassEnabled ? (
+            <p
+              className="text-xs uppercase tracking-[0.2em] text-amber-700"
+              data-testid="break-glass-guidance"
+            >
+              Emergency owner access remains available only through the documented break-glass
+              procedure.
+            </p>
+          ) : null}
+        </div>
       )}
       {localAuthEnabled ? (
         <div className="mt-6 flex items-center justify-between text-sm text-slate-600">

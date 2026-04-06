@@ -9,6 +9,7 @@ import { ApiRequestError } from '../lib/api-error';
 
 const {
   signInMock,
+  breakGlassSignInMock,
   signUpMock,
   requestPasswordResetMock,
   resetPasswordMock,
@@ -16,6 +17,7 @@ const {
   routerRefreshMock
 } = vi.hoisted(() => ({
   signInMock: vi.fn(),
+  breakGlassSignInMock: vi.fn(),
   signUpMock: vi.fn(),
   requestPasswordResetMock: vi.fn(),
   resetPasswordMock: vi.fn(),
@@ -36,6 +38,7 @@ vi.mock('../lib/client-api', async () => {
   return {
     ...actual,
     signIn: signInMock,
+    breakGlassSignIn: breakGlassSignInMock,
     signUp: signUpMock,
     requestPasswordReset: requestPasswordResetMock,
     resetPassword: resetPasswordMock
@@ -45,6 +48,7 @@ vi.mock('../lib/client-api', async () => {
 describe('auth forms', () => {
   beforeEach(() => {
     signInMock.mockReset();
+    breakGlassSignInMock.mockReset();
     signUpMock.mockReset();
     requestPasswordResetMock.mockReset();
     resetPasswordMock.mockReset();
@@ -60,7 +64,12 @@ describe('auth forms', () => {
   it('renders persistent polite live regions across auth forms', async () => {
     render(
       <div>
-        <SignInForm breakGlassEnabled={false} localAuthEnabled providers={[]} />
+        <SignInForm
+          breakGlassEnabled={false}
+          defaultProviderSlug={null}
+          localAuthEnabled
+          providers={[]}
+        />
         <SignUpForm />
         <ForgotPasswordForm />
         <ResetPasswordForm />
@@ -79,7 +88,12 @@ describe('auth forms', () => {
 
   it('passes automated axe checks for the sign-in form', async () => {
     const { container } = render(
-      <SignInForm breakGlassEnabled={false} localAuthEnabled providers={[]} />
+      <SignInForm
+        breakGlassEnabled={false}
+        defaultProviderSlug={null}
+        localAuthEnabled
+        providers={[]}
+      />
     );
 
     const results = await axe.run(container, {
@@ -143,5 +157,79 @@ describe('auth forms', () => {
     expect(screen.getByTestId('sign-up-error-region').textContent).toContain(
       'Please fix the highlighted fields.'
     );
+  });
+
+  it('renders the default enterprise provider first and suppresses local login when policy disables it', () => {
+    render(
+      <SignInForm
+        breakGlassEnabled
+        defaultProviderSlug="acme-oidc"
+        localAuthEnabled={false}
+        providers={[
+          {
+            slug: 'fallback-saml',
+            displayName: 'Fallback SAML',
+            type: 'saml',
+            status: 'active'
+          },
+          {
+            slug: 'acme-oidc',
+            displayName: 'Acme SSO',
+            type: 'oidc',
+            status: 'active'
+          }
+        ]}
+      />
+    );
+
+    const providerLinks = screen.getAllByRole('link');
+    expect(providerLinks[0]?.textContent).toContain('Continue with Acme SSO');
+    expect(screen.queryByTestId('sign-in-form')).toBeNull();
+    expect(screen.getByTestId('break-glass-guidance').textContent).toContain(
+      'Emergency owner access remains available'
+    );
+  });
+
+  it('renders break-glass mode only when it is explicitly requested', async () => {
+    breakGlassSignInMock.mockResolvedValue({
+      user: {
+        id: 'user_owner',
+        email: 'owner@example.com',
+        name: 'Owner User',
+        role: 'owner'
+      }
+    });
+
+    render(
+      <SignInForm
+        breakGlassEnabled
+        breakGlassMode
+        defaultProviderSlug="acme-oidc"
+        localAuthEnabled={false}
+        providers={[
+          {
+            slug: 'acme-oidc',
+            displayName: 'Acme SSO',
+            type: 'oidc',
+            status: 'active'
+          }
+        ]}
+      />
+    );
+
+    fireEvent.change(screen.getByTestId('sign-in-email'), {
+      target: { value: 'owner@example.com' }
+    });
+    fireEvent.change(screen.getByTestId('sign-in-password'), {
+      target: { value: 'ChangeMe123!' }
+    });
+    fireEvent.click(screen.getByTestId('sign-in-submit'));
+
+    await waitFor(() => {
+      expect(breakGlassSignInMock).toHaveBeenCalledWith({
+        email: 'owner@example.com',
+        password: 'ChangeMe123!'
+      });
+    });
   });
 });

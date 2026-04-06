@@ -33,6 +33,11 @@ jobs:
           node-version: 20
           cache: npm
 
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: latest
+
       - name: Install dependencies
         run: npm ci
 
@@ -44,6 +49,12 @@ jobs:
 
       - name: Check docs
         run: npm run docs:check
+
+      - name: Validate Kubernetes overlays
+        run: |
+          kubectl kustomize infra/k8s/base > /dev/null
+          kubectl kustomize infra/k8s/overlays/staging > /dev/null
+          kubectl kustomize infra/k8s/overlays/production > /dev/null
 
       - name: Lint
         run: npm run lint
@@ -68,6 +79,9 @@ jobs:
 
       - name: Browser smoke
         run: npm run test:e2e
+
+      - name: Enterprise login smoke
+        run: npm run test:e2e:enterprise
 
   perf-smoke:
     runs-on: ubuntu-latest

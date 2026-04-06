@@ -11,12 +11,14 @@ The template adds release-integrity workflows for:
 - dependency review on pull requests
 - SBOM generation
 - image vulnerability scanning
+- image signing
 - provenance attestation
 
 ## Rationale
 
 - enterprise readiness requires evidence about what was built and what was shipped
 - application security is incomplete without artifact-level visibility
+- release promotion should happen by immutable digest rather than tag drift
 - these controls fit naturally in the repo and CI layer
 
 ## Consequences

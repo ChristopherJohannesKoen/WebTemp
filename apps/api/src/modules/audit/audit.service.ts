@@ -13,6 +13,65 @@ function isSerializableConflict(error: unknown) {
   return error instanceof Prisma.PrismaClientUnknownRequestError;
 }
 
+function resolveAuditDefaults(action: string): {
+  eventCategory: AuditEventCategory;
+  outcome: AuditOutcome;
+} {
+  if (action.startsWith('authz.')) {
+    return {
+      eventCategory: 'authorization',
+      outcome: 'denied'
+    };
+  }
+
+  if (action.startsWith('auth.')) {
+    return {
+      eventCategory: 'authentication',
+      outcome: 'success'
+    };
+  }
+
+  if (action === 'identity.provider_upserted') {
+    return {
+      eventCategory: 'configuration',
+      outcome: 'success'
+    };
+  }
+
+  if (action.startsWith('identity.')) {
+    return {
+      eventCategory: 'provisioning',
+      outcome: 'success'
+    };
+  }
+
+  if (action === 'user.role_updated') {
+    return {
+      eventCategory: 'authorization',
+      outcome: 'success'
+    };
+  }
+
+  if (action.startsWith('governance.')) {
+    return {
+      eventCategory: 'configuration',
+      outcome: 'success'
+    };
+  }
+
+  if (action.startsWith('project.') || action === 'user.profile_updated') {
+    return {
+      eventCategory: 'application',
+      outcome: 'success'
+    };
+  }
+
+  return {
+    eventCategory: 'application',
+    outcome: 'success'
+  };
+}
+
 @Injectable()
 export class AuditService {
   constructor(
@@ -32,6 +91,7 @@ export class AuditService {
     metadata?: Record<string, unknown> | null;
   }) {
     const requestContext = this.requestContextService.get();
+    const defaults = resolveAuditDefaults(input.action);
     const maxAttempts = 3;
 
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
@@ -48,8 +108,8 @@ export class AuditService {
               action: input.action,
               targetType: input.targetType,
               targetId: input.targetId ?? null,
-              eventCategory: input.eventCategory ?? 'application',
-              outcome: input.outcome ?? 'success',
+              eventCategory: input.eventCategory ?? defaults.eventCategory,
+              outcome: input.outcome ?? defaults.outcome,
               authMechanism: input.authMechanism ?? requestContext?.authMechanism ?? null,
               requestId: requestContext?.requestId ?? null,
               ipAddress: requestContext?.ipAddress ?? null,
@@ -66,8 +126,8 @@ export class AuditService {
                 action: input.action,
                 targetType: input.targetType,
                 targetId: input.targetId ?? null,
-                eventCategory: input.eventCategory ?? 'application',
-                outcome: input.outcome ?? 'success',
+                eventCategory: input.eventCategory ?? defaults.eventCategory,
+                outcome: input.outcome ?? defaults.outcome,
                 authMechanism: input.authMechanism ?? requestContext?.authMechanism ?? null,
                 requestId: requestContext?.requestId ?? null,
                 ipAddress: requestContext?.ipAddress ?? null,

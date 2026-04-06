@@ -204,6 +204,16 @@ export function validateEnvironment(rawEnvironment: Environment) {
     );
   }
 
+  if (
+    enterpriseIdentityEnabled &&
+    ['staging', 'production'].includes(String(value.APP_ENV)) &&
+    !hasConfiguredValue(value.ENTERPRISE_DEFAULT_PROVIDER_SLUG)
+  ) {
+    throw new Error(
+      'Environment validation failed: ENTERPRISE_DEFAULT_PROVIDER_SLUG must be configured for staging and production enterprise deployments.'
+    );
+  }
+
   if (oidcConfigured) {
     assertRequiredWhenEnabled(value, 'OIDC_PROVIDER_SLUG', ['OIDC_ISSUER', 'OIDC_CLIENT_ID']);
     assertSecretConfigured(value, 'OIDC_CLIENT_SECRET');
@@ -240,6 +250,18 @@ export function validateEnvironment(rawEnvironment: Environment) {
   ) {
     throw new Error(
       'Environment validation failed: ENTERPRISE_DEFAULT_PROVIDER_SLUG must match a configured OIDC or SAML provider slug.'
+    );
+  }
+
+  if (
+    ['staging', 'production'].includes(String(value.APP_ENV)) &&
+    oidcConfigured &&
+    samlConfigured &&
+    hasConfiguredValue(value.ENTERPRISE_DEFAULT_PROVIDER_SLUG) &&
+    value.ENTERPRISE_DEFAULT_PROVIDER_SLUG !== value.OIDC_PROVIDER_SLUG
+  ) {
+    throw new Error(
+      'Environment validation failed: ENTERPRISE_DEFAULT_PROVIDER_SLUG must point to the OIDC provider when OIDC is configured for staging or production.'
     );
   }
 

@@ -6,7 +6,7 @@ An opinionated full-stack SaaS template for teams that want to start from a hard
 
 - `apps/web`: Next.js 15 App Router, Tailwind, shared UI package, nonce-based CSP with staged report-only rollout support, strict browser security headers, and server-side `/api/*` proxying
 - `apps/api`: NestJS 11, Prisma, Postgres, Swagger, session-cookie auth, CSRF protection, idempotency, RBAC, rate limiting, audit logging
-- `apps/api`: enterprise identity support with OIDC, SAML, SCIM, break-glass login, and owner step-up confirmation
+- `apps/api`: enterprise identity support with OIDC-first login, optional SAML and SCIM, break-glass login, and owner step-up confirmation
 - `apps/api`: Prometheus-compatible metrics at `/api/metrics` with optional OTLP tracing behind `FEATURE_OBSERVABILITY`
 - `packages/contracts`: shared ts-rest contract router for website-facing API calls
 - `packages/db`: shared Prisma schema, migrations, seed flow
@@ -29,7 +29,7 @@ An opinionated full-stack SaaS template for teams that want to start from a hard
 - contract-backed web/API calls through `packages/contracts` with runtime Zod validation for JSON responses and explicit non-JSON handling for export/download paths
 - accessible auth forms with polite live error regions and field-level associations
 - CI, Docker image publishing workflow, and CodeQL scanning
-- enterprise SSO, SCIM provisioning, retention-aware governance cleanup, Kubernetes deployment baseline, and release-integrity workflows for SBOM, dependency review, and image scanning
+- enterprise SSO, optional SCIM provisioning, retention-aware governance cleanup, Kubernetes deployment baseline, and release-integrity workflows for SBOM, dependency review, image scanning, signing, and provenance
 
 ## Quick Start
 
@@ -93,6 +93,7 @@ docker compose up --build
 - `npm run typecheck`: run TypeScript and Prisma validation
 - `npm test`: run workspace Vitest suites
 - `npm run test:e2e`: run the full Playwright E2E suite
+- `npm run test:e2e:enterprise`: run the enterprise-login Playwright smoke under the OIDC-first enterprise profile
 - `npm run docs:check`: run markdown lint and internal link validation
 - `npm run test:perf:smoke`: run the smoke-level k6 performance scenario
 - `npm run test:perf:critical`: run the deeper critical auth/session/project API performance scenario
@@ -157,6 +158,7 @@ The default template keeps the runtime small: web, API, and Postgres only. Optio
 - [API Contract Guide](docs/contracts.md)
 - [Enterprise Identity Guide](docs/enterprise-identity.md)
 - [Governance And Compliance Guide](docs/governance-and-compliance.md)
+- [Control And Evidence Matrix](docs/control-evidence-matrix.md)
 - [Kubernetes Deployment Baseline](docs/kubernetes-baseline.md)
 - [Web Hardening Guide](docs/web-hardening.md)
 - [Testing And Failpoint Guide](docs/testing-and-failpoints.md)

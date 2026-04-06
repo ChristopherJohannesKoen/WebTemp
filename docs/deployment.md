@@ -11,14 +11,17 @@
 ## Production Checklist
 
 1. Set production `APP_URL`, `API_ORIGIN`, `DATABASE_URL`, `SESSION_COOKIE_NAME`, and the origin policy envs.
-2. Set enterprise identity and secret inputs for OIDC or SAML before enabling `ENTERPRISE_IDENTITY_ENABLED=true`.
-3. Run the Prisma migration job before promoting a new API revision.
-4. Run `npm run seed` only for bootstrap environments where the initial owner must be provisioned.
-5. Build and publish `api` and `web` images from GitHub Actions.
-6. Generate SBOMs, scan artifacts, and attach provenance attestations in the release-integrity lane.
-7. Expose `/api/health` for health checks and `/api/metrics` for Prometheus scraping.
-8. Keep `EXPOSE_DEV_RESET_DETAILS=false` in every deployed environment.
-9. Enable `FEATURE_OBSERVABILITY=true` only when `OTEL_EXPORTER_OTLP_ENDPOINT` is configured and reachable.
+2. For the baseline production posture, configure OIDC and set `ENTERPRISE_DEFAULT_PROVIDER_SLUG` to the OIDC provider slug before enabling `ENTERPRISE_IDENTITY_ENABLED=true`.
+3. Enable SAML only when a deployment specifically requires it, and enable SCIM only when provisioning automation is needed.
+4. Keep local auth out of the normal production login path; break-glass remains the only allowed local recovery mechanism.
+5. Run the Prisma migration job before promoting a new API revision.
+6. Run `npm run seed` only for bootstrap environments where the initial owner must be provisioned.
+7. Build and publish `api` and `web` images from GitHub Actions.
+8. Promote the same image digest between staging and production; do not rebuild environment-specific application images.
+9. Generate SBOMs, scan artifacts, sign images, and attach provenance attestations in the release-integrity lane.
+10. Expose `/api/health` for health checks and `/api/metrics` for Prometheus scraping.
+11. Keep `EXPOSE_DEV_RESET_DETAILS=false` in every deployed environment.
+12. Enable `FEATURE_OBSERVABILITY=true` only when `OTEL_EXPORTER_OTLP_ENDPOINT` is configured and reachable.
 
 ## CI/CD
 
@@ -27,7 +30,15 @@
 - `codeql.yml` scans the JavaScript/TypeScript codebase.
 - `dependency-review.yml` blocks risky dependency drift on pull requests.
 - `license-audit.yml` provides a repo-owned dependency license summary lane.
-- `release-integrity.yml` generates SBOMs, scans images, and attaches provenance attestations.
+- `release-integrity.yml` generates SBOMs, scans images, signs released images, and attaches provenance attestations.
+
+Documented protected-branch baseline:
+
+- `quality`
+- CodeQL
+- dependency review
+- release integrity for tagged releases
+- `release-integrity.yml` also signs released images and is the baseline promotion lane for enterprise review.
 
 ## Notes
 
