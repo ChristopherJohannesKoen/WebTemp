@@ -1,0 +1,118 @@
+Personal and Academic Use License v1.0
+
+Copyright (c) 2026 Christopher Johannes Koen
+
+This license applies only to the original work in this repository that is
+owned by the Licensor. Third-party components, vendored code, and other
+materials identified in THIRD_PARTY_NOTICES.md remain subject to their own
+license terms.
+
+1. Definitions
+
+"Licensor" means Christopher Johannes Koen.
+
+"Original Work" means the copyrightable material in this repository owned by
+the Licensor, excluding third-party materials and excluding contributions that
+the Licensor does not have the right to license.
+
+"Noncommercial Use" means use of the Original Work solely for personal study,
+internal learning, noncommercial research, evaluation, teaching, scholarship,
+or academic publication, and not primarily intended for or directed toward
+commercial advantage, client delivery, fundraising, productization, or monetary
+compensation.
+
+"Academic Use" means teaching, study, scholarship, or research by students,
+educators, researchers, or academic institutions, provided the use is not part
+of commercial consulting, fee-for-service work, sponsored commercial research,
+paid hosted services, or commercialization of the Original Work.
+
+"Commercial Use" means any use of the Original Work:
+
+- to generate revenue or monetary compensation;
+- by or for a startup, business, consultancy, agency, or corporate entity;
+- for client services, internal company tooling, or product development;
+- as part of a paid, subscription, licensed, hosted, or managed offering;
+- in connection with fundraising, venture-backed development, or commercial
+  incubation;
+- to sell, sublicense, distribute, or bundle the Original Work or a derivative
+  work; or
+- in any other context that is not Noncommercial Use or Academic Use.
+
+2. Limited License Grant
+
+Subject to this license, the Licensor grants you a personal, revocable,
+non-exclusive, non-transferable, non-sublicensable license to:
+
+- use, reproduce, and modify the Original Work for Noncommercial Use;
+- share unmodified or modified copies of the Original Work for Noncommercial
+  Use or Academic Use; and
+- publish academic or research outputs that discuss or evaluate the Original
+  Work, so long as those outputs do not redistribute the Original Work for
+  Commercial Use.
+
+3. Conditions
+
+You may exercise the license grant above only if you:
+
+- keep this license and all copyright, attribution, and notice files with any
+  distributed copy or derivative work;
+- clearly identify any material changes you make before distribution;
+- do not imply endorsement, sponsorship, or affiliation by the Licensor or by
+  Stellenbosch University; and
+- comply with all third-party license obligations described in
+  THIRD_PARTY_NOTICES.md.
+
+4. Commercial Use Requires Separate Permission
+
+You may not make Commercial Use of the Original Work without the Licensor's
+prior written permission under a separate commercial agreement.
+
+If you want to use this repository in a startup, corporate environment,
+client-facing engagement, revenue-generating service, internal business tool,
+or other entrepreneurial or commercial setting, you must obtain a separate
+written license from the Licensor.
+
+5. Reserved Rights
+
+All rights not expressly granted are reserved by the Licensor, including:
+
+- all Commercial Use rights;
+- all sublicensing rights;
+- all relicensing rights;
+- all trademark rights; and
+- all rights to offer paid services, support, dual licensing, or proprietary
+  licensing based on the Original Work.
+
+6. No Patent License
+
+No express or implied patent license is granted under this license.
+
+7. No Trademark Rights
+
+This license does not grant you any right to use the Licensor's name, marks,
+logos, trade dress, or project branding except for truthful attribution.
+
+8. Contributions
+
+External code contributions are not accepted for merge unless the contributor
+has agreed to the repository's contributor license agreement or other written
+terms approved by the Licensor. Submission of a pull request does not by itself
+grant you any Commercial Use rights under this license.
+
+9. Termination
+
+This license terminates automatically if you breach its terms. Upon termination
+you must stop using and distributing the Original Work, except to the extent
+that separate third-party licenses continue to apply to third-party materials.
+
+10. Disclaimer
+
+THE ORIGINAL WORK IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE, TITLE, AND NON-INFRINGEMENT.
+
+11. Limitation of Liability
+
+TO THE MAXIMUM EXTENT PERMITTED BY LAW, THE LICENSOR WILL NOT BE LIABLE FOR ANY
+CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN CONTRACT, TORT, OR OTHERWISE,
+ARISING FROM OR IN CONNECTION WITH THE ORIGINAL WORK OR THIS LICENSE.

@@ -172,10 +172,11 @@ The default template keeps the runtime small: web, API, and Postgres only. Optio
 
 ## Built From
 
-This template was shaped against the curated local research set in
-the `references/` directory, not copied from a single starter. The detailed map
-of direct donors, validation references, and intentionally unadopted patterns
-is in [Reference Baseline](docs/reference-baseline.md).
+This template was shaped against a private research archive of open-source
+repositories, official documentation, and public issue discussions, not copied
+from a single starter. The public provenance map of direct donors, validation
+references, and intentionally unadopted patterns is in
+[Reference Baseline](docs/reference-baseline.md).
 
 ## Dependency Security Notes
 
@@ -186,3 +187,25 @@ manifests were changed; runtime code remains the upstream package build output.
 
 See [`vendor/README.md`](vendor/README.md) for the exact patched dependencies
 and remove the vendored copies once upstream publishes equivalent fixes.
+
+## License
+
+This repository is source-available under the terms in [LICENSE](LICENSE).
+
+- personal, self-study, research, classroom, and academic use are allowed
+- commercial, entrepreneurial, startup, agency, client, or corporate use
+  requires prior written permission
+- vendored third-party materials remain under their own upstream licenses
+
+See:
+
+- [LICENSE](LICENSE)
+- [COMMERCIAL-LICENSING.md](COMMERCIAL-LICENSING.md)
+- [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
+- [CLA.md](CLA.md)
+
+This project is developed in a personal capacity; affiliations do not imply
+endorsement by Stellenbosch University.
+
+External code contributions require agreement to the repository
+[CLA](CLA.md) before merge.

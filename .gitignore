@@ -14,4 +14,6 @@ test-results
 apps/web/tsconfig.tsbuildinfo
 *.tsbuildinfo
 server/
-references
+
+# Private research/provenance working archive. Do not publish.
+references/
