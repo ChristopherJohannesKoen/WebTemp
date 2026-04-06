@@ -1,0 +1,61 @@
+name: Commercial license request
+description: Request commercial, entrepreneurial, startup, agency, client, or corporate use rights.
+title: '[Commercial license request]: '
+labels:
+  - licensing
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form if you want written permission or a commercial agreement
+        for business, startup, agency, client, or corporate use of this repo.
+  - type: input
+    id: requester
+    attributes:
+      label: Requester name
+      placeholder: Your full name
+    validations:
+      required: true
+  - type: input
+    id: organization
+    attributes:
+      label: Organization
+      placeholder: Company, institution, or project name
+    validations:
+      required: true
+  - type: dropdown
+    id: use_type
+    attributes:
+      label: Intended use
+      options:
+        - Startup / MVP
+        - Internal company tool
+        - Client or consulting work
+        - Paid hosted service / SaaS
+        - Template resale / bundling
+        - Other commercial use
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Proposed use
+      description: Describe the product, service, or internal use.
+      placeholder: Explain how you want to use the repository.
+    validations:
+      required: true
+  - type: input
+    id: timeline
+    attributes:
+      label: Expected timeline
+      placeholder: e.g. Pilot next month, production in Q3
+    validations:
+      required: false
+  - type: textarea
+    id: commercial_model
+    attributes:
+      label: Commercial model
+      description: Revenue, customers, internal cost saving, paid support, or related commercial context.
+      placeholder: Explain how the use is monetized or business-related.
+    validations:
+      required: true

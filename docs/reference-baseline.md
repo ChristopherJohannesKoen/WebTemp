@@ -2,277 +2,182 @@
 
 ## Purpose
 
-This repository was not built from a single starter. It was built from a
-curated local research set under the `references/` directory and then
-implemented as one opinionated template.
+This repository was informed by a private working archive of open-source
+repositories, official documentation, and public issue discussions. The public
+repository does not distribute that archive.
 
-Some references influenced the code directly. Others were used as validation
-material to pressure-test decisions, especially around App Router CSP behavior,
-contract-backed transports, accessible form errors, sessions, and request
-integrity.
+This document is the public provenance summary: it names the key references,
+links to the public sources, and explains which patterns were adopted or only
+used for validation.
 
-Use this document to understand what informed the template and which reference
-patterns were intentionally not adopted wholesale.
+## How To Read This Document
 
-## How To Read The Reference Set
-
-- `Direct donor`: a reference whose pattern clearly appears in the template.
-- `Validation reference`: used to confirm or constrain an implementation choice.
+- `Direct donor`: a reference whose pattern clearly appears in the template
+- `Validation reference`: used to confirm or constrain an implementation choice
 - `Evaluated but not adopted`: reviewed for ideas, but not taken as the core
-  template direction.
+  template direction
 
 The goal was not to recreate another repo. The goal was to extract stable
-patterns and re-implement them with this template's stack and security model.
+patterns and re-implement them with this template's stack, security model, and
+product posture.
 
-## Monorepo And Delivery Baseline
+## Public Repositories And Docs Used As Direct Donors
 
-Direct donors:
+### Monorepo, delivery, and container baseline
 
-- `references/turborepo-main`
-- `references/turborepo-nextjs-main`
-- `references/fullstack-turborepo-starter-master`
-- `references/nextjs-docker-production-kit-master`
+- Turborepo
+  - <https://github.com/vercel/turborepo>
+- Fullstack Turborepo Starter
+  - <https://github.com/Skolaczk/fullstack-turborepo-starter>
+- Next.js Docker Production Kit
+  - <https://github.com/leerob/nextjs-docker-production-kit>
 
-Validation references:
-
-- `references/Docker Compose _ Docker Docs.pdf`
-- `references/Dockerfile reference _ Docker Docs.pdf`
-- `references/How to Use the Postgres Docker Official Image _ Docker.pdf`
-- `references/postgres - Official Image _ Docker Hub.pdf`
-- `references/GitHub Actions documentation - GitHub Docs.pdf`
-- `references/Understanding GitHub Actions - GitHub Docs.pdf`
-
-What the template took from them:
+Patterns absorbed:
 
 - workspace-based app and package separation
 - production Docker builds for web and API
 - CI-first repository structure
-- local and deployment workflows that keep the stack reproducible
+- reproducible local and deployment workflows
 
-## Web Shell And Product UX
+### Web shell and product UX
 
-Direct donors:
+- Next.js SaaS Starter
+  - <https://github.com/nextjs/saas-starter>
+- Next SaaS Stripe Starter
+  - <https://github.com/mickasmt/next-saas-stripe-starter>
+- Next.js Auth Starter
+  - <https://github.com/Thabish-Kader/nextjs-auth-starter>
 
-- `references/saas-starter-main`
-- `references/next-saas-stripe-starter-main`
-- `references/nextjs-auth-starter-main`
+Patterns absorbed:
 
-What the template took from them:
-
-- the idea of a public marketing shell plus authenticated app shell
+- public marketing shell plus authenticated app shell
 - role-aware dashboard navigation
-- opinionated SaaS layouting instead of a blank admin scaffold
+- SaaS-oriented application framing instead of a blank admin scaffold
 
-Current status:
+### Browser security and CSP
 
-This area is largely absorbed already. The website now hides admin navigation
-for `member` users and preserves route and API guards as the real enforcement
-boundary.
+- next-safe-middleware
+  - <https://github.com/nibtime/next-safe-middleware>
 
-## Browser Security And CSP
-
-Direct donors:
-
-- `references/next-safe-middleware-main`
-
-Validation references:
-
-- `references/[App Router] Content Security Policy Broken · Issue #63015 · vercel_next.js.pdf`
-- `references/Hydration warning when using next_script with a CSP that includes a nonce · Issue #77952 · vercel_next.js.pdf`
-- `references/Next.js 15_ CSP headers not applied in production unless await headers() is called · vercel_next.js · Discussion #80....pdf`
-- `references/next.js-canary`
-
-What the template took from them:
+Patterns absorbed:
 
 - nonce-based CSP as the website baseline
 - strict browser security headers owned in app middleware
 - staged rollout support through report-only mode
-- explicit caution around App Router nonce behavior and production regressions
 
-Current status:
+### Contract-backed website transport
 
-This area is also largely absorbed already. Production CSP is strict, nonce
-based, and no longer relies on blanket `style-src 'unsafe-inline'`.
+- ts-rest
+  - <https://github.com/ts-rest/ts-rest>
+- Zod
+  - <https://github.com/colinhacks/zod>
 
-## Contract-Backed Website Transport
+Patterns absorbed:
 
-Direct donors:
+- contracts separated from payload schemas
+- runtime validation for website-facing JSON responses
+- named client operations instead of scattered raw fetch strings
 
-- `references/ts-rest-main`
-- `references/zod-main`
-- `references/Intro _ Zod.pdf`
+### Sessions, CSRF, and request integrity
 
-Evaluated but not adopted wholesale:
+- node-idempotency
+  - <https://github.com/mahendraHegde/node-idempotency>
+- csrf-csrf
+  - <https://github.com/Psifi-Solutions/csrf-csrf>
 
-- `references/zodios-main`
-
-What the template took from them:
-
-- route contracts separated from payload schemas
-- runtime validation of website-facing JSON responses
-- explicit success and error status handling
-- named client operations instead of raw fetch strings scattered through pages
-
-Why `ts-rest` was chosen:
-
-`ts-rest` fit the current Nest plus Next split cleanly and let the repository
-adopt contract-backed calls without rewriting the API architecture. `zodios`
-was a useful comparison point for response-schema validation and centralized API
-declaration, but it was not chosen as the template baseline.
-
-## Sessions, CSRF, And Request Integrity
-
-Direct donors:
-
-- `references/node-idempotency-main`
-
-Validation references:
-
-- `references/Session Management _ Better Auth.pdf`
-- `references/Basic session implementation.pdf`
-- `references/csrf-csrf-main`
-- `references/CSRF _ NestJS - A progressive Node.js framework.pdf`
-- `references/Authorization _ NestJS - A progressive Node.js framework.pdf`
-- `references/Guards _ NestJS - A progressive Node.js framework.pdf`
-
-What the template took from them:
+Patterns absorbed:
 
 - opaque server-side sessions instead of JWT-first auth
 - touch-throttled session freshness updates
-- rotation and revocation as explicit lifecycle events
+- explicit rotation and revocation lifecycle events
 - structured idempotency request replay and conflict semantics
 - CSRF and origin handling as separate browser defenses
-- clear `401` versus `403` semantics at guard boundaries
 
-Current status:
+### Logging and observability
 
-This area is mature in the current template. The main remaining work is ongoing
-stress and race coverage, not a missing architectural pattern.
+- nestjs-pino
+  - <https://github.com/iamolegga/nestjs-pino>
 
-## API And Data-Layer Discipline
-
-Validation references:
-
-- `references/OpenAPI (Swagger) _ NestJS - A progressive Node.js framework.pdf`
-- `references/Workspaces - CLI _ NestJS - A progressive Node.js framework.pdf`
-- `references/testing-nestjs-main`
-- `references/CRUD (Reference) _ Prisma Documentation.pdf`
-- `references/Select fields _ Prisma Documentation.pdf`
-- `references/Pagination _ Prisma Documentation.pdf`
-- `references/Indexes _ Prisma Documentation.pdf`
-- `references/Development and production _ Prisma Documentation.pdf`
-
-What the template took from them:
-
-- explicit API documentation and module structure
-- testable Nest patterns at controller, service, integration, and E2E boundaries
-- narrow Prisma selects instead of over-fetching related rows
-- indexed list endpoints and predictable pagination behavior
-
-## Logging, Metrics, And Operational Maturity
-
-Direct donors:
-
-- `references/nestjs-pino-master`
-
-Validation references:
-
-- `references/GitHub Actions documentation - GitHub Docs.pdf`
-- `references/Understanding GitHub Actions - GitHub Docs.pdf`
-
-What the template took from them:
+Patterns absorbed:
 
 - structured request logging with request identity
-- a production-minded observability baseline instead of console-only logging
-- CI as a first-class product surface, not an afterthought
+- production-minded observability baselines instead of console-only logging
 
-## Accessibility And Form Semantics
+### Accessibility and form semantics
 
-### Direct donors
+- React Spectrum
+  - <https://github.com/adobe/react-spectrum>
+- NVDA
+  - <https://github.com/nvaccess/nvda>
 
-- `references/react-spectrum-main`
+Patterns absorbed:
 
-### Validation references
+- live error regions for auth flows
+- stable field-error associations
+- accessibility treatment as infrastructure, not cosmetic markup
 
-- `references/Prefer using \`aria-errormessage\` above \`aria-describedby\` · Issue #7425 · adobe_react-spectrum.pdf`
-- `references/Live regions not announced correctly · Issue #11410 · nvaccess_nvda.pdf`
-- `references/nvda-master`
+## Validation References
 
-### What the template took from them
+These sources shaped implementation constraints without being copied wholesale.
 
-- auth forms need explicit live-error regions
-- field errors must be associated to controls through stable IDs
-- accessibility behavior needs to be treated as product infrastructure, not
-  cosmetic markup
+### Framework and platform docs
 
-Current status:
+- Next.js
+  - <https://github.com/vercel/next.js>
+  - <https://nextjs.org/docs>
+- NestJS
+  - <https://docs.nestjs.com>
+- Prisma
+  - <https://www.prisma.io/docs>
+- Docker
+  - <https://docs.docker.com>
+- GitHub Actions
+  - <https://docs.github.com/en/actions>
 
-This area is substantially adopted. The auth flows now expose polite live
-regions and field-level associations. The remaining improvements here are small
-polish items rather than missing architecture.
+### Public discussions reviewed for edge cases
 
-## References Reviewed But Not Adopted As Core Template Direction
+- Next.js CSP and nonce discussions around App Router behavior
+- React Spectrum accessibility discussions around `aria-errormessage`
+- NVDA issue threads on live-region announcement behavior
 
-- `references/casbin-nest-authz-master`
-  - reviewed while evaluating externalized authorization models
-  - not adopted because the template keeps a smaller in-repo policy layer by
-    default
-- `references/next-auth-main`
-  - reviewed while comparing session models
-  - not adopted because the template keeps opaque cookie-backed sessions and a
-    first-party auth flow
-- `references/web-main`
-  - useful as general UI inspiration, not a direct architecture donor
+What these validation sources influenced:
 
-## Reference-Driven Upgrade Review
+- App Router CSP implementation choices
+- contract and response-validation constraints
+- Nest module and Prisma query discipline
+- operational CI and container workflow shape
+- auth-form accessibility details
 
-After reviewing the reference set against the current website code, the major
-reference-driven upgrades are already present:
+## References Evaluated But Not Adopted As Core Direction
 
-- role-aware admin navigation is implemented
-- production CSP is strict and nonce based
-- website JSON transport is contract backed
-- auth forms have live regions and field-level associations
+- Zodios
+  - <https://github.com/ecyrbe/zodios>
+  - useful comparison point for response-schema validation and centralized API
+    declaration, but not chosen over `ts-rest`
+- NextAuth / Auth.js
+  - <https://github.com/nextauthjs/next-auth>
+  - reviewed while comparing session models, but not adopted because the
+    template keeps first-party opaque cookie-backed sessions
+- casbin-nest-authz
+  - <https://github.com/node-casbin/nest-authz>
+  - reviewed while evaluating externalized authorization models, but not used
+    because the template keeps a smaller in-repo policy layer
 
-The remaining upgrades are incremental, not foundational.
+## Public Repo Policy For Reference Material
 
-### Upgrade 1: tighten success unwrapping around contract responses
+This public repository should not carry copied third-party PDFs, copied issue
+exports, copied documentation snapshots, or similar archive material unless
+redistribution rights are clear and the material is documented in
+[`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md).
 
-`apps/web/lib/api-error.ts` still exposes a generic
-`unwrapContractResponse<T>(...)` helper that returns `response.body as T` after
-status checks. Runtime validation from `ts-rest` greatly reduces risk, so this
-is no longer a serious correctness gap, but the helper API still allows future
-callers to lean on casts instead of inferred contract payloads.
+The maintainable public posture is:
 
-Recommended direction:
-
-- make success unwrap helpers infer their payloads from the ts-rest operation
-  result shape instead of accepting a generic `T`
-- keep schema-less success casting unavailable by default
-
-### Upgrade 2: add `aria-errormessage` as a progressive enhancement
-
-The current auth forms already meet the main accessibility intent from the
-reference set through `aria-live="polite"`, `aria-invalid`, and
-`aria-describedby`. A small upgrade would be to also set
-`aria-errormessage=<field-error-id>` when a field is invalid.
-
-That would align more closely with the React Spectrum accessibility discussions
-captured in the reference set while preserving current screen-reader behavior.
-
-### Upgrade 3: add nonce-propagation E2E assertions, not just header assertions
-
-The template already tests CSP header presence and policy shape. Because the
-reference set includes multiple App Router nonce regression discussions, a
-useful extra guard would be an E2E assertion that rendered framework scripts
-actually carry a nonce when the page is served, not just that the header exists.
-
-This is a test-depth improvement, not evidence that the current implementation
-is broken.
+- keep private research archives outside the public repository
+- keep this document as the public provenance summary
+- link to upstream public sources instead of redistributing them
 
 ## Bottom Line
 
-The references folder still justifies a few targeted improvements, but it does
-not reveal any missing top-tier website architecture in the current repo. Most
-of the high-value ideas from the reference set are already absorbed into the
-template.
+The template was informed by a broad research set, but it is not a repackaged
+starter. The value in this repository is the reimplementation, integration, and
+hardening of those ideas into one opinionated template.

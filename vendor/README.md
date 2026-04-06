@@ -21,5 +21,9 @@ dependencies, which breaks Linux and Docker builds.
 Only package manifests were changed. The built runtime files in `dist/` are the
 upstream package contents.
 
+These vendored materials remain under their upstream `MIT` licenses. See the
+root [`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md) and the upstream
+`LICENSE` files in each vendored package directory.
+
 Remove these vendored packages once upstream releases versions that include the
 same dependency fixes.
