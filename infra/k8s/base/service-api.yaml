@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: ultimate-template-api
+spec:
+  selector:
+    app: ultimate-template-api
+  ports:
+    - name: http
+      port: 4000
+      targetPort: http

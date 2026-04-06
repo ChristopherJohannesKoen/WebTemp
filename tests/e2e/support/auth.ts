@@ -1,5 +1,6 @@
 import { expect, type Browser, type BrowserContext, type Page } from '@playwright/test';
 import { getSeedUser } from './e2e-db';
+import { getE2EEnv } from './e2e-env';
 
 type Credentials = {
   email: string;
@@ -49,6 +50,24 @@ export async function signOutFromSidebar(page: Page) {
   await page.goto('/app/settings');
   await page.getByTestId('current-session-sign-out').click();
   await expect(page).toHaveURL(/\/login$/);
+}
+
+export async function completeOwnerStepUp(page: Page, password: string) {
+  const { APP_URL } = getE2EEnv();
+  const csrfResponse = await page.context().request.get(`${APP_URL}/api/auth/csrf`);
+  expect(csrfResponse.ok()).toBeTruthy();
+
+  const csrfPayload = (await csrfResponse.json()) as { csrfToken: string };
+  const response = await page.context().request.post(`${APP_URL}/api/auth/step-up`, {
+    headers: {
+      'x-csrf-token': csrfPayload.csrfToken
+    },
+    data: {
+      password
+    }
+  });
+
+  expect(response.ok()).toBeTruthy();
 }
 
 export async function openSecondarySession(

@@ -1,0 +1,30 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ultimate-template-prisma-migrate
+spec:
+  backoffLimit: 2
+  template:
+    metadata:
+      labels:
+        job: ultimate-template-prisma-migrate
+    spec:
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: migrate
+          image: ghcr.io/example/ultimate-template-api:latest
+          command: ['npm', 'run', 'prisma:migrate:deploy', '--workspace=@packages/db']
+          envFrom:
+            - configMapRef:
+                name: ultimate-template-api-config
+            - secretRef:
+                name: ultimate-template-secrets
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ['ALL']
+            readOnlyRootFilesystem: true

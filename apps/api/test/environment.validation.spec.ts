@@ -85,4 +85,67 @@ describe('validateEnvironment', () => {
 
     expect(result.ALLOW_MISSING_ORIGIN_FOR_DEV).toBe(true);
   });
+
+  it('rejects enterprise identity in production when no provider is configured', () => {
+    expect(() =>
+      validateEnvironment({
+        ...baseEnvironment,
+        NODE_ENV: 'production',
+        APP_ENV: 'production',
+        ENTERPRISE_IDENTITY_ENABLED: 'true'
+      })
+    ).toThrow('enterprise identity is enabled but no OIDC or SAML provider is configured');
+  });
+
+  it('accepts an OIDC-backed enterprise production configuration', () => {
+    const result = validateEnvironment({
+      ...baseEnvironment,
+      NODE_ENV: 'production',
+      APP_ENV: 'production',
+      ENTERPRISE_IDENTITY_ENABLED: 'true',
+      ENTERPRISE_DEFAULT_PROVIDER_SLUG: 'enterprise-oidc',
+      OIDC_PROVIDER_SLUG: 'enterprise-oidc',
+      OIDC_ISSUER: 'https://idp.example.com',
+      OIDC_CLIENT_ID: 'client-id',
+      OIDC_CLIENT_SECRET: 'super-secret'
+    });
+
+    expect(result.ENTERPRISE_IDENTITY_ENABLED).toBe(true);
+    expect(result.OIDC_PROVIDER_SLUG).toBe('enterprise-oidc');
+  });
+
+  it('requires an explicit default provider slug for enterprise staging and production', () => {
+    expect(() =>
+      validateEnvironment({
+        ...baseEnvironment,
+        NODE_ENV: 'production',
+        APP_ENV: 'production',
+        ENTERPRISE_IDENTITY_ENABLED: 'true',
+        OIDC_PROVIDER_SLUG: 'enterprise-oidc',
+        OIDC_ISSUER: 'https://idp.example.com',
+        OIDC_CLIENT_ID: 'client-id',
+        OIDC_CLIENT_SECRET: 'super-secret'
+      })
+    ).toThrow('ENTERPRISE_DEFAULT_PROVIDER_SLUG must be configured for staging and production');
+  });
+
+  it('requires the OIDC provider to remain the default when both OIDC and SAML are configured', () => {
+    expect(() =>
+      validateEnvironment({
+        ...baseEnvironment,
+        NODE_ENV: 'production',
+        APP_ENV: 'production',
+        ENTERPRISE_IDENTITY_ENABLED: 'true',
+        ENTERPRISE_DEFAULT_PROVIDER_SLUG: 'enterprise-saml',
+        OIDC_PROVIDER_SLUG: 'enterprise-oidc',
+        OIDC_ISSUER: 'https://idp.example.com',
+        OIDC_CLIENT_ID: 'client-id',
+        OIDC_CLIENT_SECRET: 'super-secret',
+        SAML_PROVIDER_SLUG: 'enterprise-saml',
+        SAML_SSO_URL: 'https://idp.example.com/saml',
+        SAML_ENTITY_ID: 'urn:acme:idp',
+        SAML_CERTIFICATE_PEM: '-----BEGIN CERTIFICATE-----\nZmFrZQ==\n-----END CERTIFICATE-----'
+      })
+    ).toThrow('ENTERPRISE_DEFAULT_PROVIDER_SLUG must point to the OIDC provider');
+  });
 });

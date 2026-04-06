@@ -7,19 +7,31 @@ import {
   randomBytes,
   timingSafeEqual
 } from 'node:crypto';
-import type { SessionSummary, SessionUser } from '@packages/shared';
-import type { User } from '@prisma/client';
+import type {
+  IdentityProviderSummary,
+  SessionAuthMethod,
+  SessionAuthReason,
+  SessionSummary,
+  SessionUser
+} from '@packages/shared';
+import type { IdentityProviderType, User } from '@prisma/client';
 import { publicUserSelect, type PublicUserRecord } from '../../common/prisma/public-selects';
 import type {
   AuthenticatedRequest,
   AuthenticatedSession
 } from '../../common/types/authenticated-request';
+import { SecretService } from '../../common/secrets/secret.service';
 import { MetricsService } from '../observability/metrics.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 type SessionMetadata = {
   ipAddress?: string | null;
   userAgent?: string | null;
+  authMethod?: SessionAuthMethod;
+  authReason?: SessionAuthReason;
+  identityProviderId?: string | null;
+  identityProvider?: IdentityProviderSummary | null;
+  externalSubject?: string | null;
 };
 
 type SessionContext = {
@@ -35,7 +47,8 @@ export class SessionService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly configService: ConfigService,
-    private readonly metricsService: MetricsService
+    private readonly metricsService: MetricsService,
+    private readonly secretService: SecretService
   ) {}
 
   async createSession(userId: string, metadata: SessionMetadata) {
@@ -49,6 +62,10 @@ export class SessionService {
           tokenHash: this.hashToken(token),
           csrfTokenHash: this.hashToken(csrfTokenSeed),
           userId,
+          authMethod: metadata.authMethod ?? 'local',
+          authReason: metadata.authReason ?? 'local_login',
+          identityProviderId: metadata.identityProviderId ?? null,
+          externalSubject: metadata.externalSubject ?? null,
           expiresAt,
           ipAddress: metadata.ipAddress ?? null,
           userAgent: metadata.userAgent ?? null
@@ -98,11 +115,31 @@ export class SessionService {
   async listSessions(currentUser: SessionUser, currentSessionId?: string) {
     const sessions = await this.prismaService.session.findMany({
       where: { userId: currentUser.id },
-      orderBy: [{ lastUsedAt: 'desc' }, { createdAt: 'desc' }]
+      orderBy: [{ lastUsedAt: 'desc' }, { createdAt: 'desc' }],
+      include: {
+        identityProvider: {
+          select: {
+            slug: true,
+            displayName: true,
+            type: true,
+            status: true
+          }
+        }
+      }
     });
 
     return {
-      items: sessions.map((session) => this.toSessionSummary(session, currentSessionId))
+      items: sessions.map((session) =>
+        this.toSessionSummary(
+          {
+            ...session,
+            identityProvider: session.identityProvider
+              ? this.toIdentityProviderSummary(session.identityProvider)
+              : null
+          },
+          currentSessionId
+        )
+      )
     };
   }
 
@@ -159,7 +196,17 @@ export class SessionService {
     const tokenHash = this.hashToken(rawToken);
     const session = await this.prismaService.session.findUnique({
       where: { tokenHash },
-      include: { user: { select: publicUserSelect } }
+      include: {
+        user: { select: publicUserSelect },
+        identityProvider: {
+          select: {
+            slug: true,
+            displayName: true,
+            type: true,
+            status: true
+          }
+        }
+      }
     });
 
     if (!session) {
@@ -170,6 +217,12 @@ export class SessionService {
     if (session.expiresAt < new Date()) {
       await this.prismaService.session.delete({ where: { id: session.id } });
       this.metricsService.recordSessionEvent('expired');
+      return undefined;
+    }
+
+    if (session.user.disabledAt) {
+      await this.prismaService.session.delete({ where: { id: session.id } });
+      this.metricsService.recordSessionEvent('disabled_user');
       return undefined;
     }
 
@@ -219,7 +272,10 @@ export class SessionService {
     }
 
     return {
-      user: this.toSessionUser(session.user),
+      user: this.toSessionUser(
+        session.user,
+        session.identityProvider ? this.toIdentityProviderSummary(session.identityProvider) : null
+      ),
       session: this.toAuthenticatedSession(updatedSession),
       rotatedToken
     };
@@ -302,14 +358,43 @@ export class SessionService {
     request.sessionToken = sessionContext.rotatedToken ?? request.sessionToken;
   }
 
+  async markStepUpCompleted(sessionId: string, expiresAt: Date) {
+    await this.prismaService.session.update({
+      where: { id: sessionId },
+      data: { stepUpAt: expiresAt }
+    });
+
+    this.metricsService.recordSessionEvent('step_up_completed');
+  }
+
+  private toIdentityProviderSummary(provider: {
+    slug: string;
+    displayName: string;
+    type: IdentityProviderType;
+    status: string;
+  }): IdentityProviderSummary {
+    return {
+      slug: provider.slug,
+      displayName: provider.displayName,
+      type: provider.type,
+      status: provider.status as IdentityProviderSummary['status']
+    };
+  }
+
   private toSessionUser(
-    user: Pick<User, 'id' | 'email' | 'name' | 'role'> | PublicUserRecord
+    user:
+      | Pick<User, 'id' | 'email' | 'name' | 'role' | 'disabledAt' | 'provisionedBy'>
+      | PublicUserRecord,
+    identityProvider?: IdentityProviderSummary | null
   ): SessionUser {
     return {
       id: user.id,
       email: user.email,
       name: user.name,
-      role: user.role
+      role: user.role,
+      disabledAt: user.disabledAt?.toISOString() ?? null,
+      provisionedBy: (user.provisionedBy as IdentityProviderType | null | undefined) ?? null,
+      identityProvider: identityProvider ?? null
     };
   }
 
@@ -317,6 +402,11 @@ export class SessionService {
     id: string;
     userId: string;
     csrfTokenHash: string;
+    authMethod: SessionAuthMethod;
+    authReason: SessionAuthReason;
+    identityProviderId: string | null;
+    externalSubject: string | null;
+    stepUpAt: Date | null;
     expiresAt: Date;
     createdAt: Date;
     lastUsedAt: Date;
@@ -328,6 +418,11 @@ export class SessionService {
       id: session.id,
       userId: session.userId,
       csrfTokenHash: session.csrfTokenHash,
+      authMethod: session.authMethod,
+      authReason: session.authReason,
+      identityProviderId: session.identityProviderId,
+      externalSubject: session.externalSubject,
+      stepUpAt: session.stepUpAt,
       expiresAt: session.expiresAt,
       createdAt: session.createdAt,
       lastUsedAt: session.lastUsedAt,
@@ -345,6 +440,10 @@ export class SessionService {
       expiresAt: Date;
       ipAddress: string | null;
       userAgent: string | null;
+      authMethod: SessionAuthMethod;
+      authReason: SessionAuthReason;
+      stepUpAt: Date | null;
+      identityProvider?: IdentityProviderSummary | null;
     },
     currentSessionId?: string
   ): SessionSummary {
@@ -352,6 +451,10 @@ export class SessionService {
       id: session.id,
       ipAddress: session.ipAddress,
       userAgent: session.userAgent,
+      authMethod: session.authMethod,
+      authReason: session.authReason,
+      identityProvider: session.identityProvider ?? null,
+      stepUpAt: session.stepUpAt?.toISOString() ?? null,
       createdAt: session.createdAt.toISOString(),
       lastUsedAt: session.lastUsedAt.toISOString(),
       expiresAt: session.expiresAt.toISOString(),
@@ -377,7 +480,7 @@ export class SessionService {
 
   private getCookieEncryptionKey() {
     const encryptionKey = Buffer.from(
-      this.configService.get<string>('SESSION_COOKIE_ENCRYPTION_KEY', ''),
+      this.secretService.getRequiredSecret('SESSION_COOKIE_ENCRYPTION_KEY'),
       'hex'
     );
 

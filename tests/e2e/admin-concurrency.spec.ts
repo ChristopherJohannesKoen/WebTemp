@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { countOwners, resetDatabase } from './support/e2e-db';
-import { openSecondarySession, seededUsers, signIn } from './support/auth';
+import { completeOwnerStepUp, openSecondarySession, seededUsers, signIn } from './support/auth';
 
 test.describe('admin concurrency and stale-role enforcement', () => {
   test.beforeEach(async () => {
@@ -40,6 +40,7 @@ test.describe('admin concurrency and stale-role enforcement', () => {
     await page.goto('/app/admin/users');
 
     const adminCard = page.getByTestId(`admin-user-${seededUsers.admin.email}`);
+    await completeOwnerStepUp(page, seededUsers.owner.password);
     await adminCard.getByTestId('role-select').selectOption('owner');
     await adminCard.getByTestId('role-submit').click();
     await expect(adminCard.getByTestId('role-select')).toHaveValue('owner');
@@ -47,6 +48,8 @@ test.describe('admin concurrency and stale-role enforcement', () => {
     const secondOwnerSession = await openSecondarySession(browser, seededUsers.admin);
     await page.goto('/app/admin/users');
     await secondOwnerSession.page.goto('/app/admin/users');
+    await completeOwnerStepUp(page, seededUsers.owner.password);
+    await completeOwnerStepUp(secondOwnerSession.page, seededUsers.admin.password);
 
     const firstOwnerTargetCard = page.getByTestId(`admin-user-${seededUsers.admin.email}`);
     const secondOwnerTargetCard = secondOwnerSession.page.getByTestId(

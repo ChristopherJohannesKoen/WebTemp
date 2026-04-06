@@ -11,15 +11,24 @@ model User {
   id                  String               @id @default(cuid())
   email               String               @unique
   name                String
-  passwordHash        String
+  passwordHash        String?
   role                Role                 @default(member)
+  disabledAt          DateTime?
+  disabledReason      String?
+  provisionedBy       IdentityProviderType?
   bootstrapOwnership  BootstrapState?      @relation("BootstrapOwner")
   sessions            Session[]
   passwordResetTokens PasswordResetToken[]
   auditLogs           AuditLog[]           @relation("AuditActor")
   createdProjects     Project[]            @relation("ProjectCreator")
+  identities          UserIdentity[]
+  groupMemberships    UserGroupMembership[]
+  accessPolicyActor   AccessPolicyEvent[]  @relation("AccessPolicyActor")
+  accessPolicyTarget  AccessPolicyEvent[]  @relation("AccessPolicyTarget")
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
+
+  @@index([disabledAt])
 }
 
 model BootstrapState {
@@ -36,6 +45,12 @@ model Session {
   csrfTokenHash  String
   userId         String
   user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  authMethod     SessionAuthMethod @default(local)
+  authReason     SessionAuthReason @default(local_login)
+  identityProviderId String?
+  identityProvider IdentityProviderConfig? @relation(fields: [identityProviderId], references: [id], onDelete: SetNull)
+  externalSubject String?
+  stepUpAt       DateTime?
   expiresAt      DateTime
   createdAt      DateTime @default(now())
   lastUsedAt     DateTime @default(now())
@@ -46,6 +61,7 @@ model Session {
   @@index([userId])
   @@index([expiresAt])
   @@index([lastRotatedAt])
+  @@index([identityProviderId])
 }
 
 model PasswordResetToken {
@@ -66,14 +82,25 @@ model AuditLog {
   actorId    String?
   actor      User?     @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
   action     String
+  eventCategory AuditEventCategory @default(application)
+  outcome    AuditOutcome @default(success)
+  authMechanism SessionAuthMethod?
   targetType String
   targetId   String?
+  requestId  String?
+  ipAddress  String?
+  userAgent  String?
+  legalHold  Boolean   @default(false)
+  previousHash String?
+  entryHash  String    @unique
   metadata   Json?
   createdAt  DateTime  @default(now())
 
   @@index([actorId])
   @@index([targetType, targetId])
   @@index([createdAt])
+  @@index([eventCategory, createdAt])
+  @@index([legalHold, createdAt])
 }
 
 model IdempotencyRequest {
@@ -112,10 +139,190 @@ model Project {
   @@index([updatedAt, id])
 }
 
+model IdentityProviderConfig {
+  id                    String                 @id @default(cuid())
+  slug                  String                 @unique
+  displayName           String
+  type                  IdentityProviderType
+  status                IdentityProviderStatus @default(staged)
+  issuer                String?
+  authorizationEndpoint String?
+  tokenEndpoint         String?
+  jwksUri               String?
+  clientId              String?
+  clientSecretRef       String?
+  scopes                String[]
+  samlSsoUrl            String?
+  samlEntityId          String?
+  samlCertificatePem    String?
+  verifiedDomains       String[]
+  groupClaim            String?
+  emailClaim            String?
+  subjectClaim          String?
+  scimBearerTokenRef    String?
+  userIdentities        UserIdentity[]
+  userGroups            UserGroup[]
+  sessions              Session[]
+  provisioningCursors   ProvisioningCursor[]
+  accessPolicyEvents    AccessPolicyEvent[]
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+
+  @@index([status, type])
+}
+
+model UserIdentity {
+  id                String               @id @default(cuid())
+  userId            String
+  user              User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  providerId        String
+  provider          IdentityProviderConfig @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  externalSubject   String
+  email             String?
+  displayName       String?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+  lastAuthenticatedAt DateTime?
+
+  @@unique([providerId, externalSubject])
+  @@index([userId])
+}
+
+model UserGroup {
+  id           String               @id @default(cuid())
+  providerId   String
+  provider     IdentityProviderConfig @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  externalId   String
+  name         String
+  memberships  UserGroupMembership[]
+  roleMapping  GroupRoleMapping?
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+
+  @@unique([providerId, externalId])
+  @@index([name])
+}
+
+model UserGroupMembership {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userGroupId String
+  userGroup   UserGroup @relation(fields: [userGroupId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([userId, userGroupId])
+  @@index([userGroupId])
+}
+
+model GroupRoleMapping {
+  id          String    @id @default(cuid())
+  userGroupId String    @unique
+  userGroup   UserGroup @relation(fields: [userGroupId], references: [id], onDelete: Cascade)
+  role        Role
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model ProvisioningCursor {
+  id            String               @id @default(cuid())
+  providerId    String
+  provider      IdentityProviderConfig @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  cursorType    ProvisioningCursorType
+  cursorValue   String?
+  lastSyncedAt  DateTime?
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+
+  @@unique([providerId, cursorType])
+}
+
+model AccessPolicyEvent {
+  id           String                @id @default(cuid())
+  providerId   String?
+  provider     IdentityProviderConfig? @relation(fields: [providerId], references: [id], onDelete: SetNull)
+  actorId      String?
+  actor        User?                 @relation("AccessPolicyActor", fields: [actorId], references: [id], onDelete: SetNull)
+  targetUserId String?
+  targetUser   User?                 @relation("AccessPolicyTarget", fields: [targetUserId], references: [id], onDelete: SetNull)
+  event        AccessPolicyEventType
+  outcome      AccessPolicyOutcome
+  reason       String?
+  metadata     Json?
+  createdAt    DateTime              @default(now())
+
+  @@index([providerId, createdAt])
+  @@index([targetUserId, createdAt])
+}
+
 enum Role {
   owner
   admin
   member
+}
+
+enum IdentityProviderType {
+  oidc
+  saml
+}
+
+enum IdentityProviderStatus {
+  staged
+  active
+  disabled
+}
+
+enum SessionAuthMethod {
+  local
+  oidc
+  saml
+  break_glass
+}
+
+enum SessionAuthReason {
+  local_login
+  oidc_login
+  saml_login
+  password_reset
+  break_glass
+}
+
+enum AuditEventCategory {
+  application
+  authentication
+  provisioning
+  authorization
+  configuration
+  export
+  security
+}
+
+enum AuditOutcome {
+  success
+  denied
+  failure
+}
+
+enum ProvisioningCursorType {
+  scim_users
+  scim_groups
+}
+
+enum AccessPolicyEventType {
+  jit_provision
+  scim_provision
+  group_mapping_applied
+  group_mapping_denied
+  break_glass_login
+  step_up_completed
+  provider_configuration_changed
+}
+
+enum AccessPolicyOutcome {
+  success
+  denied
+  failure
 }
 
 enum ProjectStatus {

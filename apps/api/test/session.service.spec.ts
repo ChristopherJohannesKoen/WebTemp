@@ -20,6 +20,17 @@ function createMetricsService() {
   };
 }
 
+function createSecretService() {
+  return {
+    getRequiredSecret: vi.fn((key: string) =>
+      key === 'SESSION_COOKIE_ENCRYPTION_KEY'
+        ? '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
+        : ''
+    ),
+    getOptionalSecret: vi.fn()
+  };
+}
+
 describe('SessionService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -59,7 +70,8 @@ describe('SessionService', () => {
         SESSION_ROTATION_MS: '1',
         SESSION_TOUCH_INTERVAL_MS: '1'
       }) as never,
-      metricsService as never
+      metricsService as never,
+      createSecretService() as never
     );
 
     const [firstResult, secondResult] = await Promise.all([
@@ -83,7 +95,8 @@ describe('SessionService', () => {
     const service = new SessionService(
       {} as never,
       createConfigService() as never,
-      createMetricsService() as never
+      createMetricsService() as never,
+      createSecretService() as never
     );
 
     const rawToken = 'raw-session-token';
@@ -92,5 +105,63 @@ describe('SessionService', () => {
     expect(encodedToken).not.toBe(rawToken);
     expect(service.decodeSessionCookieToken(encodedToken)).toBe(rawToken);
     expect(service.decodeSessionCookieToken(`${encodedToken}tampered`)).toBeUndefined();
+  });
+
+  it('invalidates sessions for disabled users on the next request', async () => {
+    const prismaService = {
+      session: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'session_1',
+          tokenHash: 'existing-token-hash',
+          csrfTokenHash: 'csrf-token-hash',
+          userId: 'user_member',
+          authMethod: 'oidc',
+          authReason: 'oidc_login',
+          identityProviderId: 'provider_1',
+          identityProvider: {
+            slug: 'enterprise-oidc',
+            displayName: 'Acme SSO',
+            type: 'oidc',
+            status: 'active'
+          },
+          externalSubject: 'subject_123',
+          stepUpAt: null,
+          expiresAt: new Date(Date.now() + 60_000),
+          createdAt: new Date(Date.now() - 60_000),
+          lastUsedAt: new Date(Date.now() - 60_000),
+          lastRotatedAt: new Date(Date.now() - 60_000),
+          ipAddress: '127.0.0.1',
+          userAgent: 'vitest',
+          user: {
+            id: 'user_member',
+            email: 'member@example.com',
+            name: 'Member User',
+            role: 'member',
+            disabledAt: new Date(),
+            provisionedBy: 'oidc'
+          }
+        }),
+        delete: vi.fn().mockResolvedValue(undefined)
+      }
+    };
+
+    const metricsService = createMetricsService();
+    const service = new SessionService(
+      prismaService as never,
+      createConfigService() as never,
+      metricsService as never,
+      createSecretService() as never
+    );
+
+    const result = await service.resolveSessionContext('raw-token', {
+      ipAddress: '127.0.0.1',
+      userAgent: 'vitest'
+    });
+
+    expect(result).toBeUndefined();
+    expect(prismaService.session.delete).toHaveBeenCalledWith({
+      where: { id: 'session_1' }
+    });
+    expect(metricsService.recordSessionEvent).toHaveBeenCalledWith('disabled_user');
   });
 });
