@@ -4,6 +4,7 @@ import { apiContract } from '@packages/contracts';
 import type {
   AuthPayload,
   AuthResponse,
+  BreakGlassLoginPayload,
   ForgotPasswordPayload,
   ForgotPasswordResponse,
   OkResponse,
@@ -12,6 +13,7 @@ import type {
   ResetPasswordPayload,
   RevokeSessionResponse,
   Role,
+  StepUpResponse,
   UpdateProfilePayload,
   UserSummary
 } from '@packages/shared';
@@ -138,6 +140,16 @@ export function signIn(body: AuthPayload) {
   });
 }
 
+export function breakGlassSignIn(body: BreakGlassLoginPayload) {
+  return executeMutation<AuthResponse>({
+    method: 'POST',
+    requireCsrf: false,
+    clearCsrfAfter: true,
+    expectedStatuses: [200],
+    call: () => browserClient.auth.breakGlassLogin({ body })
+  });
+}
+
 export function signUp(body: { name: string; email: string; password: string }) {
   return executeMutation<AuthResponse>({
     method: 'POST',
@@ -202,6 +214,20 @@ export function logoutAll() {
     expectedStatuses: [200],
     call: (headers) =>
       browserClient.auth.logoutAll({
+        headers: {
+          'x-csrf-token': headers['x-csrf-token']!
+        }
+      })
+  });
+}
+
+export function completeStepUp(password: string) {
+  return executeMutation<StepUpResponse>({
+    method: 'POST',
+    expectedStatuses: [200],
+    call: (headers) =>
+      browserClient.auth.stepUp({
+        body: { password },
         headers: {
           'x-csrf-token': headers['x-csrf-token']!
         }

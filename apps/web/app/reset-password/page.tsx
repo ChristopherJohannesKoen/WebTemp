@@ -1,8 +1,16 @@
+import { redirect } from 'next/navigation';
 import { ResetPasswordForm } from '../../components/reset-password-form';
+import { getSsoProviders } from '../../lib/server-api';
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 export default async function ResetPasswordPage({ searchParams }: { searchParams: SearchParams }) {
+  const ssoProviders = await getSsoProviders();
+
+  if (!ssoProviders.localAuthEnabled) {
+    redirect('/login');
+  }
+
   const resolvedSearchParams = await searchParams;
   const token = Array.isArray(resolvedSearchParams.token)
     ? resolvedSearchParams.token[0]

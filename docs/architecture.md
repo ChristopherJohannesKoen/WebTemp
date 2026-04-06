@@ -8,7 +8,7 @@ This repository is a reusable single-tenant SaaS template. It is intentionally o
 
 - `apps/web` renders the public marketing shell and authenticated dashboard.
 - `apps/web` proxies `/api/*` requests to Nest through the server-side `API_ORIGIN` variable and consumes JSON endpoints through ts-rest contracts in `packages/contracts`.
-- `apps/api` exposes REST endpoints under `/api`, serves Swagger at `/api/docs`, and manages auth, CSRF, idempotency, RBAC, auditing, and projects.
+- `apps/api` exposes REST endpoints under `/api`, serves Swagger at `/api/docs`, and manages auth, CSRF, idempotency, RBAC, enterprise identity, auditing, governance cleanup, and projects.
 - `apps/api` also exposes Prometheus-compatible runtime metrics at `/api/metrics`.
 - `packages/db` owns Prisma schema, migrations, and seed data.
 - `packages/contracts` owns the shared website-facing ts-rest route contract.
@@ -16,7 +16,9 @@ This repository is a reusable single-tenant SaaS template. It is intentionally o
 
 ## Product Modules
 
-- `AuthModule`: signup, login, logout, logout-all, session revocation, forgot-password, reset-password, cookie sessions, CSRF token issuing
+- `AuthModule`: signup, login, logout, logout-all, session revocation, forgot-password, reset-password, break-glass login, step-up confirmation, cookie sessions, CSRF token issuing
+- `IdentityModule`: OIDC, SAML, SCIM, provider sync, group-role mapping, and enterprise access policy events
+- `GovernanceModule`: retention-policy cleanup for audit, session, reset-token, and idempotency records
 - `UsersModule`: current-user profile read/update
 - `AdminModule`: user listing and owner-only role changes
 - `ProjectsModule`: the reference CRUD slice with cursor pagination and explicit write policy checks
@@ -27,6 +29,7 @@ This repository is a reusable single-tenant SaaS template. It is intentionally o
 
 - Argon2id password hashing
 - secure, HTTP-only session cookies
+- encrypted enterprise SSO state and encrypted session-cookie transport
 - nonce-based Content Security Policy and strict browser security headers on web responses
 - synchronizer-token CSRF protection for authenticated unsafe routes
 - idempotency protection for critical POST endpoints
@@ -36,12 +39,17 @@ This repository is a reusable single-tenant SaaS template. It is intentionally o
 - origin checks for mutating requests as secondary defense
 - throttling via Nest throttler
 - structured request IDs and audit records
+- tamper-evident audit chain fields and legal-hold support
 - Prometheus-compatible request, auth, session, security, and idempotency metrics
+- enterprise identity metrics for SSO, SCIM, and access-policy events
 - validation-first request handling with class-validator and a shared JSON error envelope
 
 ## Security Invariants
 
 - Seed/setup flows establish the initial owner; public signup never bootstraps privileged roles.
+- Enterprise SSO is the preferred production auth path; local auth is disabled by policy unless explicitly allowed for local or break-glass usage.
+- Owner-sensitive admin actions require a fresh step-up confirmation window.
+- SCIM deprovision disables users instead of hard-deleting them so audit and ownership history remain intact.
 - Bootstrap ownership is anchored in the database through a singleton `BootstrapState` record. Seed/setup creates it in a serializable transaction and refuses to silently migrate it to a new configured owner email later.
 - Multiple owners are allowed after bootstrap, but owner-sensitive role updates must never leave the system with zero owners.
 - Role-protected routes return `401` when unauthenticated and `403` only for authenticated-but-forbidden requests.
@@ -100,3 +108,9 @@ The web app and API both rely on these schemas so UI and server drift is reduced
 The default template intentionally avoids hard dependencies on Redis, object storage, email delivery, worker orchestration, and distributed tracing collectors. Optional infrastructure is scaffolded in `infra/compose`, feature-gated through env validation, and documented as extension slots rather than mandatory runtime components.
 
 Prometheus and Grafana are included as optional observability profiles so teams can adopt a working metrics stack without changing the core runtime contract.
+
+## Production Baseline
+
+- Docker Compose remains the local-development path.
+- Kubernetes under `infra/k8s` is the authoritative production baseline.
+- Production assumes managed Postgres, secret-backed config injection, SBOM generation, image scanning, and provenance-aware release lanes.

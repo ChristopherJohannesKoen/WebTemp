@@ -12,6 +12,14 @@ This document describes the hardened website baseline in `apps/web`. It is the r
 
 The goal is not "secure enough for a demo." The goal is a repeatable default that can survive real product customization without regressing into ad hoc client behavior.
 
+The website now also participates in the enterprise identity posture:
+
+- provider-first login discovery
+- explicit default-provider semantics from the `sso/providers` contract
+- local-auth suppression when enterprise identity is enforced
+- explicit break-glass affordances only through a documented operator mode
+- owner step-up UX before role-sensitive admin actions
+
 ## Reference Baseline
 
 The web hardening model in this document was informed by the local reference set
@@ -163,6 +171,13 @@ This reduces confusion and avoids unnecessary forbidden-route traffic, but it mu
 
 Role checks should flow through capability helpers in the web layer rather than repeated string comparisons across components.
 
+When enterprise identity is enabled:
+
+- the default provider is shown first on `/login`, with OIDC preferred when configured
+- local signup and reset routes are redirected away when policy disables them
+- break-glass local login is rendered only when explicitly enabled and explicitly requested
+- owner role changes require a step-up round trip from the browser
+
 ## Auth Form Accessibility
 
 Auth forms must preserve these behaviors:
@@ -171,6 +186,7 @@ Auth forms must preserve these behaviors:
 - field-level errors associated to controls through stable IDs
 - `aria-invalid` on invalid controls
 - server and validation failures announced without relying on color only
+- enterprise and break-glass states must remain understandable to keyboard and screen-reader users
 
 This applies to:
 

@@ -1,9 +1,19 @@
-import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  UnauthorizedException
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma, type User } from '@prisma/client';
 import argon2 from 'argon2';
 import { createHash, randomBytes } from 'node:crypto';
-import type { SessionUser } from '@packages/shared';
+import type {
+  SessionAuthMethod,
+  SessionAuthReason,
+  SessionUser,
+  StepUpResponse
+} from '@packages/shared';
 import type { AuthenticatedSession } from '../../common/types/authenticated-request';
 import { readBooleanConfig } from '../../common/config/boolean-config';
 import {
@@ -24,6 +34,10 @@ import { SessionService } from './session.service';
 type SessionMetadata = {
   ipAddress?: string | null;
   userAgent?: string | null;
+  authMethod?: SessionAuthMethod;
+  authReason?: SessionAuthReason;
+  identityProviderId?: string | null;
+  externalSubject?: string | null;
 };
 
 @Injectable()
@@ -37,6 +51,7 @@ export class AuthService {
   ) {}
 
   async signUp(dto: SignupDto, metadata: SessionMetadata) {
+    this.assertLocalAccountProvisioningAllowed();
     const email = normalizeEmail(dto.email);
 
     try {
@@ -70,26 +85,137 @@ export class AuthService {
   }
 
   async login(dto: LoginDto, metadata: SessionMetadata) {
+    this.assertLocalPasswordAuthAllowed(false);
+    return this.authenticateLocalUser(dto, metadata, {
+      authMethod: 'local',
+      authReason: 'local_login',
+      auditAction: 'auth.login',
+      metricEvent: 'login_success'
+    });
+  }
+
+  async breakGlassLogin(dto: LoginDto, metadata: SessionMetadata) {
+    this.assertBreakGlassAllowed();
+
+    const result = await this.authenticateLocalUser(dto, metadata, {
+      authMethod: 'break_glass',
+      authReason: 'break_glass',
+      auditAction: 'auth.break_glass_login',
+      metricEvent: 'break_glass_login'
+    });
+
+    if (result.user.role !== 'owner') {
+      throw new ForbiddenException('Break-glass login is restricted to owners.');
+    }
+
+    return result;
+  }
+
+  async completeStepUp(
+    currentUser: SessionUser,
+    currentSession: AuthenticatedSession,
+    password: string
+  ): Promise<StepUpResponse> {
+    if (currentUser.role !== 'owner') {
+      throw new ForbiddenException('Only owners can perform a privileged step-up.');
+    }
+
+    const user = await this.prismaService.user.findUnique({
+      where: { id: currentUser.id }
+    });
+
+    if (!user?.passwordHash || !(await argon2.verify(user.passwordHash, password))) {
+      throw new UnauthorizedException('The current password is invalid.');
+    }
+
+    const stepUpExpiresAt = new Date(Date.now() + this.getOwnerStepUpWindowMs());
+    await this.sessionService.markStepUpCompleted(currentSession.id, stepUpExpiresAt);
+
+    this.metricsService.recordAuthEvent('step_up_completed');
+    await this.auditService.log({
+      actorId: currentUser.id,
+      action: 'auth.step_up_completed',
+      targetType: 'session',
+      targetId: currentSession.id,
+      eventCategory: 'security',
+      outcome: 'success',
+      authMechanism: currentSession.authMethod
+    });
+
+    return {
+      ok: true,
+      stepUpExpiresAt: stepUpExpiresAt.toISOString()
+    };
+  }
+
+  async loginWithEnterpriseIdentity(
+    user: Pick<User, 'id' | 'email' | 'name' | 'role' | 'disabledAt' | 'provisionedBy'>,
+    metadata: SessionMetadata & {
+      authMethod: SessionAuthMethod;
+      authReason: SessionAuthReason;
+      identityProviderId: string;
+      externalSubject: string;
+    }
+  ) {
+    const { token, expiresAt } = await this.sessionService.createSession(user.id, metadata);
+
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        disabledAt: user.disabledAt?.toISOString() ?? null,
+        provisionedBy: user.provisionedBy ?? null,
+        identityProvider: null
+      },
+      token,
+      expiresAt
+    };
+  }
+
+  private async authenticateLocalUser(
+    dto: LoginDto,
+    metadata: SessionMetadata,
+    options: {
+      authMethod: SessionAuthMethod;
+      authReason: SessionAuthReason;
+      auditAction: 'auth.login' | 'auth.break_glass_login';
+      metricEvent: string;
+    }
+  ) {
     const email = normalizeEmail(dto.email);
     const user = await this.prismaService.user.findUnique({
       where: { email }
     });
 
-    if (!user || !(await argon2.verify(user.passwordHash, dto.password))) {
+    if (
+      !user ||
+      !user.passwordHash ||
+      user.disabledAt ||
+      !(await argon2.verify(user.passwordHash, dto.password))
+    ) {
       this.metricsService.recordAuthEvent('login_failure');
       throw new UnauthorizedException('Invalid email or password.');
     }
 
     await this.auditService.log({
       actorId: user.id,
-      action: 'auth.login',
+      action: options.auditAction,
       targetType: 'user',
       targetId: user.id,
+      eventCategory: 'authentication',
+      outcome: 'success',
+      authMechanism: options.authMethod,
       metadata: { ipAddress: metadata.ipAddress ?? null }
     });
-    this.metricsService.recordAuthEvent('login_success');
+    this.metricsService.recordAuthEvent(options.metricEvent);
 
-    return this.createAuthResult(user, metadata);
+    return this.createAuthResult(user, {
+      ...metadata,
+      authMethod: options.authMethod,
+      authReason: options.authReason
+    });
   }
 
   async logout(sessionToken: string | undefined, actorId?: string) {
@@ -150,6 +276,7 @@ export class AuthService {
   }
 
   async requestPasswordReset(dto: ForgotPasswordDto) {
+    this.assertPasswordResetAllowed();
     const email = normalizeEmail(dto.email);
     const user = await this.prismaService.user.findUnique({
       where: { email },
@@ -200,6 +327,7 @@ export class AuthService {
   }
 
   async completePasswordReset(dto: ResetPasswordDto) {
+    this.assertPasswordResetAllowed();
     const tokenHash = this.hashToken(dto.token);
     const tokenRecord = await this.prismaService.passwordResetToken.findUnique({
       where: { tokenHash }
@@ -283,8 +411,15 @@ export class AuthService {
   }
 
   private async createAuthResult(
-    user: Pick<User, 'id' | 'email' | 'name' | 'role'> | PublicUserRecord,
-    metadata: SessionMetadata
+    user:
+      | Pick<User, 'id' | 'email' | 'name' | 'role' | 'disabledAt' | 'provisionedBy'>
+      | PublicUserRecord,
+    metadata: SessionMetadata & {
+      authMethod?: SessionAuthMethod;
+      authReason?: SessionAuthReason;
+      identityProviderId?: string | null;
+      externalSubject?: string | null;
+    }
   ) {
     const { token, expiresAt } = await this.sessionService.createSession(user.id, metadata);
 
@@ -293,7 +428,10 @@ export class AuthService {
         id: user.id,
         email: user.email,
         name: user.name,
-        role: user.role
+        role: user.role,
+        disabledAt: user.disabledAt?.toISOString() ?? null,
+        provisionedBy: user.provisionedBy ?? null,
+        identityProvider: null
       },
       token,
       expiresAt
@@ -327,5 +465,68 @@ export class AuthService {
     );
 
     return exposeDevResetDetails && canExposeResetDetails(appEnvironment);
+  }
+
+  private assertLocalAccountProvisioningAllowed() {
+    if (this.isEnterpriseIdentityEnforced()) {
+      throw new ForbiddenException(
+        'Self-service account creation is disabled when enterprise identity is enabled.'
+      );
+    }
+  }
+
+  private assertLocalPasswordAuthAllowed(forBreakGlass: boolean) {
+    if (!this.isEnterpriseIdentityEnforced()) {
+      return;
+    }
+
+    if (forBreakGlass && this.isBreakGlassEnabled()) {
+      return;
+    }
+
+    throw new ForbiddenException(
+      'Local password authentication is disabled for this environment. Use enterprise sign-in.'
+    );
+  }
+
+  private assertBreakGlassAllowed() {
+    if (!this.isEnterpriseIdentityEnabled() || !this.isBreakGlassEnabled()) {
+      throw new ForbiddenException('Break-glass access is not enabled in this environment.');
+    }
+  }
+
+  private assertPasswordResetAllowed() {
+    if (this.isEnterpriseIdentityEnforced()) {
+      throw new ForbiddenException(
+        'Password reset is disabled when enterprise identity is enabled.'
+      );
+    }
+  }
+
+  private isEnterpriseIdentityEnabled() {
+    return readBooleanConfig(
+      this.configService.get<string | boolean>('ENTERPRISE_IDENTITY_ENABLED', false),
+      false
+    );
+  }
+
+  private isEnterpriseIdentityEnforced() {
+    const appEnvironment = normalizeAppEnvironment(
+      this.configService.get<string>('APP_ENV'),
+      this.configService.get<string>('NODE_ENV', 'development')
+    );
+
+    return this.isEnterpriseIdentityEnabled() && !['local', 'test'].includes(appEnvironment);
+  }
+
+  private isBreakGlassEnabled() {
+    return readBooleanConfig(
+      this.configService.get<string | boolean>('BREAK_GLASS_LOCAL_LOGIN_ENABLED', false),
+      false
+    );
+  }
+
+  private getOwnerStepUpWindowMs() {
+    return Number(this.configService.get<string>('OWNER_STEP_UP_WINDOW_MS', '900000'));
   }
 }

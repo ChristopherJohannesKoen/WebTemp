@@ -55,6 +55,12 @@ export class MetricsService {
     labelNames: ['event'],
     registers: [this.registry]
   });
+  private readonly identityEventsTotal = new Counter({
+    name: 'ultimate_template_identity_events_total',
+    help: 'Enterprise identity, SSO, SCIM, and access-policy events.',
+    labelNames: ['event'],
+    registers: [this.registry]
+  });
   private readonly idempotencyEventsTotal = new Counter({
     name: 'ultimate_template_idempotency_events_total',
     help: 'Idempotency request lifecycle events.',
@@ -112,6 +118,10 @@ export class MetricsService {
 
   recordOwnershipEvent(event: string) {
     this.ownershipEventsTotal.inc({ event });
+  }
+
+  recordIdentityEvent(event: string) {
+    this.identityEventsTotal.inc({ event });
   }
 
   recordIdempotencyEvent(event: string) {

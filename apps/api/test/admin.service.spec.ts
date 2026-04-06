@@ -3,6 +3,23 @@ import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AdminService } from '../src/modules/admin/admin.service';
 
+const currentOwnerSession = {
+  id: 'session_owner',
+  userId: 'user_owner',
+  csrfTokenHash: 'csrf',
+  authMethod: 'local' as const,
+  authReason: 'local_login' as const,
+  identityProviderId: null,
+  externalSubject: null,
+  stepUpAt: new Date(Date.now() + 60_000),
+  expiresAt: new Date(Date.now() + 60_000),
+  createdAt: new Date(),
+  lastUsedAt: new Date(),
+  lastRotatedAt: new Date(),
+  ipAddress: null,
+  userAgent: null
+};
+
 function createService(prismaOverrides: Record<string, unknown>) {
   const auditService = {
     log: vi.fn()
@@ -71,6 +88,7 @@ describe('AdminService', () => {
         name: 'Owner User',
         role: 'owner'
       },
+      currentOwnerSession,
       'user_member',
       {
         role: 'owner'
@@ -127,6 +145,7 @@ describe('AdminService', () => {
           name: 'Owner User',
           role: 'owner'
         },
+        currentOwnerSession,
         'user_owner',
         {
           role: 'member'
@@ -177,6 +196,7 @@ describe('AdminService', () => {
           name: 'Owner User',
           role: 'owner'
         },
+        currentOwnerSession,
         'user_member',
         {
           role: 'admin'
@@ -202,6 +222,7 @@ describe('AdminService', () => {
           name: 'Owner User',
           role: 'owner'
         },
+        currentOwnerSession,
         'user_member',
         {
           role: 'admin'
@@ -254,11 +275,119 @@ describe('AdminService', () => {
           name: 'Owner User',
           role: 'owner'
         },
+        currentOwnerSession,
         'missing-user',
         {
           role: 'admin'
         }
       )
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('requires a fresh owner step-up window before owner-sensitive role changes', async () => {
+    const transaction = {
+      user: {
+        findUnique: vi
+          .fn()
+          .mockResolvedValueOnce({
+            id: 'user_owner',
+            role: 'owner'
+          })
+          .mockResolvedValueOnce({
+            id: 'user_member',
+            email: 'member@example.com',
+            name: 'Member User',
+            role: 'member',
+            createdAt: new Date('2026-04-01T00:00:00.000Z'),
+            updatedAt: new Date('2026-04-01T00:00:00.000Z')
+          }),
+        count: vi.fn(),
+        update: vi.fn()
+      }
+    };
+
+    const prismaService = {
+      $transaction: vi.fn((callback: (tx: typeof transaction) => unknown) => callback(transaction))
+    };
+
+    const { service } = createService(prismaService);
+
+    await expect(
+      service.updateRole(
+        {
+          id: 'user_owner',
+          email: 'owner@example.com',
+          name: 'Owner User',
+          role: 'owner'
+        },
+        {
+          ...currentOwnerSession,
+          stepUpAt: new Date(Date.now() - 1_000)
+        },
+        'user_member',
+        {
+          role: 'owner'
+        }
+      )
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({
+        code: 'step_up_required'
+      })
+    });
+  });
+
+  it('does not require step-up for non-owner role changes', async () => {
+    const transaction = {
+      user: {
+        findUnique: vi
+          .fn()
+          .mockResolvedValueOnce({
+            id: 'user_owner',
+            role: 'owner'
+          })
+          .mockResolvedValueOnce({
+            id: 'user_member',
+            email: 'member@example.com',
+            name: 'Member User',
+            role: 'member',
+            createdAt: new Date('2026-04-01T00:00:00.000Z'),
+            updatedAt: new Date('2026-04-01T00:00:00.000Z')
+          }),
+        count: vi.fn(),
+        update: vi.fn().mockResolvedValue({
+          id: 'user_member',
+          email: 'member@example.com',
+          name: 'Member User',
+          role: 'admin',
+          createdAt: new Date('2026-04-01T00:00:00.000Z'),
+          updatedAt: new Date('2026-04-02T00:00:00.000Z')
+        })
+      }
+    };
+
+    const prismaService = {
+      $transaction: vi.fn((callback: (tx: typeof transaction) => unknown) => callback(transaction))
+    };
+
+    const { service } = createService(prismaService);
+
+    const result = await service.updateRole(
+      {
+        id: 'user_owner',
+        email: 'owner@example.com',
+        name: 'Owner User',
+        role: 'owner'
+      },
+      {
+        ...currentOwnerSession,
+        stepUpAt: new Date(Date.now() - 1_000)
+      },
+      'user_member',
+      {
+        role: 'admin'
+      }
+    );
+
+    expect(result.role).toBe('admin');
   });
 });

@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { CommonInfrastructureModule } from '../common/infrastructure/common-infrastructure.module';
 import { validateEnvironment } from '../common/config/environment.validation';
 import { CsrfMiddleware } from '../common/middleware/csrf.middleware';
 import { OriginGuardMiddleware } from '../common/middleware/origin-guard.middleware';
@@ -13,12 +14,15 @@ import { AdminController } from './admin/admin.controller';
 import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
 import { AuthController } from './auth/auth.controller';
+import { GovernanceModule } from './governance/governance.module';
 import { HealthModule } from './health/health.module';
 import { HealthController } from './health/health.controller';
 import { ObservabilityModule } from './observability/observability.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ProjectsModule } from './projects/projects.module';
 import { ProjectsController } from './projects/projects.controller';
+import { IdentityModule } from './identity/identity.module';
+import { IdentityController, ScimController } from './identity/identity.controller';
 import { UsersModule } from './users/users.module';
 import { UsersController } from './users/users.controller';
 
@@ -35,10 +39,13 @@ import { UsersController } from './users/users.controller';
       }
     ]),
     ScheduleModule.forRoot(),
+    CommonInfrastructureModule,
     PrismaModule,
     ObservabilityModule,
     AuditModule,
+    GovernanceModule,
     AuthModule,
+    IdentityModule,
     UsersModule,
     AdminModule,
     ProjectsModule,
@@ -61,10 +68,12 @@ export class AppModule implements NestModule {
       .apply(RequestContextMiddleware, SessionMiddleware, OriginGuardMiddleware, CsrfMiddleware)
       .forRoutes(
         AuthController,
+        IdentityController,
         UsersController,
         AdminController,
         ProjectsController,
-        HealthController
+        HealthController,
+        ScimController
       );
   }
 }

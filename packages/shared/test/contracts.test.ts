@@ -5,6 +5,7 @@ import {
   ProjectListQuerySchema,
   ProjectUpsertPayloadSchema,
   SessionUserSchema,
+  SsoProvidersResponseSchema,
   SignupPayloadSchema
 } from '../src/index';
 
@@ -66,6 +67,24 @@ describe('shared contracts', () => {
         code: 'forbidden',
         errors: [],
         requestId: 'request_1'
+      })
+    ).not.toThrow();
+  });
+
+  it('accepts explicit login-policy metadata for enterprise providers', () => {
+    expect(() =>
+      SsoProvidersResponseSchema.parse({
+        providers: [
+          {
+            slug: 'enterprise-oidc',
+            displayName: 'Acme SSO',
+            type: 'oidc',
+            status: 'active'
+          }
+        ],
+        defaultProviderSlug: 'enterprise-oidc',
+        localAuthEnabled: false,
+        breakGlassEnabled: false
       })
     ).not.toThrow();
   });

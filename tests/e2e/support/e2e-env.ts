@@ -15,6 +15,11 @@ function loadIfPresent(envPath: string, override: boolean) {
   }
 }
 
+function loadProfileEnv(profile: string) {
+  loadIfPresent(rootPath(`.env.e2e.${profile}.example`), true);
+  loadIfPresent(rootPath(`.env.e2e.${profile}`), true);
+}
+
 export function loadE2EEnv() {
   if (loaded) {
     return process.env;
@@ -24,6 +29,12 @@ export function loadE2EEnv() {
   loadIfPresent(rootPath('.env'), true);
   loadIfPresent(rootPath('.env.e2e.example'), true);
   loadIfPresent(rootPath('.env.e2e'), true);
+
+  const profile = process.env.E2E_PROFILE?.trim();
+
+  if (profile) {
+    loadProfileEnv(profile);
+  }
 
   process.env.NODE_ENV ??= 'test';
   process.env.APP_ENV ??= 'test';

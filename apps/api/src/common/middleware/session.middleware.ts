@@ -2,10 +2,14 @@ import { Injectable, NestMiddleware } from '@nestjs/common';
 import type { NextFunction, Response } from 'express';
 import type { AuthenticatedRequest } from '../types/authenticated-request';
 import { SessionService } from '../../modules/auth/session.service';
+import { RequestContextService } from '../request-context/request-context.service';
 
 @Injectable()
 export class SessionMiddleware implements NestMiddleware {
-  constructor(private readonly sessionService: SessionService) {}
+  constructor(
+    private readonly sessionService: SessionService,
+    private readonly requestContextService: RequestContextService
+  ) {}
 
   async use(request: AuthenticatedRequest, response: Response, next: NextFunction) {
     const cookieName = this.sessionService.getCookieName();
@@ -37,6 +41,11 @@ export class SessionMiddleware implements NestMiddleware {
     }
 
     this.sessionService.attachSessionToRequest(request, sessionContext);
+    this.requestContextService.set({
+      actorId: sessionContext.user.id,
+      authMechanism: sessionContext.session.authMethod,
+      authReason: sessionContext.session.authReason
+    });
 
     if (sessionContext.rotatedToken) {
       response.cookie(

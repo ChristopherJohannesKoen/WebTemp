@@ -15,6 +15,14 @@
 5. Add or update server API helpers in `apps/web/lib/server-api.ts` and client mutation calls through `apps/web/lib/client-api.ts` using contract-backed operations, not raw path strings.
 6. Add at least one server-rendered page and one client-side mutation form that exercise the real API flow.
 
+## Enterprise Identity Extensions
+
+- New enterprise identity routes belong in `apps/api/src/modules/identity`.
+- Provider metadata should be synchronized into the database from validated env or secret inputs, not hard-coded in controllers.
+- `owner` must remain a tightly controlled local/manual role unless a project intentionally changes that policy.
+- Break-glass behavior must be explicit, audited, and disabled by default outside local/test.
+- If a new privileged action is added for owners, decide whether it should require the existing step-up window.
+
 ## Policy Checks
 
 - Keep authorization decisions in service-level helpers, not in controllers.
@@ -43,9 +51,11 @@
 - Keep CSRF tokens on authenticated unsafe requests handled through `client-api.ts`.
 - Treat origin checks as secondary protection, not as the only browser-side defense.
 - Keep JSON business endpoints behind `packages/contracts`; explicit text/file endpoints are the only allowed non-contract transport paths.
+- SCIM endpoints are not website-facing business endpoints; keep them in dedicated controllers and guard them with bearer-token auth, not session cookies.
 
 ## Extension Features
 
 - Put optional infra behind feature flags in `.env`.
 - Fail fast when a feature is enabled without its required env values.
 - Keep the default runtime limited to web, API, and Postgres unless a project explicitly opts into more.
+- Production deployment assets belong in `infra/k8s`; Docker Compose remains the local workflow.

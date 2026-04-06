@@ -6,6 +6,7 @@
 - Use the optional `prometheus` and `grafana` compose profiles for local or pre-production observability bring-up.
 - The template ships starter dashboards and alert rules under `infra/observability`.
 - Ownership events are exposed separately from generic security events so bootstrap conflicts and owner-floor violations are visible in metrics.
+- Enterprise identity events expose SSO starts/successes, SCIM user/group writes, domain denials, and break-glass usage.
 
 ## Recommended SLO Baseline
 
@@ -25,6 +26,8 @@
 - elevated `auth.login_failure` or `security.origin_invalid` spikes
 - growing `ultimate_template_idempotency_expired_backlog`
 - any `ultimate_template_ownership_events_total{event="owner_floor_violation"}` or `role_conflict` spike above normal admin activity
+- unexpected `ultimate_template_identity_events_total{event="break_glass_login"}` activity
+- repeated `oidc_callback_failure`, `saml_login_started`, or `sso_domain_denied` spikes
 - DB connection pressure or repeated session-expiry cleanup spikes
 - `/api/metrics` scrape failures
 
@@ -36,6 +39,29 @@
 - inspect recent `http.request`, `auth.login_failure`, and `ultimate_template_session_events_total`
 - verify DB connectivity and session table churn
 - confirm cookie name, `APP_URL`, `API_ORIGIN`, `APP_ENV`, and allowed origins
+
+### Enterprise SSO Outage
+
+- confirm the configured provider metadata and secrets are present
+- verify IdP issuer, token, and JWKS endpoints or SAML SSO URL/certificate
+- inspect `ultimate_template_identity_events_total`
+- confirm break-glass policy and owner access path before enabling emergency local auth
+- direct operators to the documented break-glass login mode rather than exposing it as a normal end-user path
+- the documented break-glass entry point is `/login?mode=break-glass`
+
+### SCIM Drift Or Provisioning Failure
+
+- confirm the configured SCIM bearer token
+- inspect `UserIdentity`, `UserGroup`, and `AccessPolicyEvent` rows for the affected user
+- verify group-role mappings and external group names
+- confirm deprovisioned users are disabled rather than deleted
+
+### Break-Glass Usage
+
+- confirm whether the access was expected as part of an approved incident
+- inspect audit logs and access-policy events for `auth.break_glass_login`
+- rotate any affected local owner credentials after the incident if policy requires it
+- confirm the primary OIDC provider has been restored before closing the incident
 
 ### Password Reset Trouble
 
@@ -70,3 +96,18 @@
   - k6 summary JSON files
   - API and web server logs
   - before/after Postgres activity snapshots from `scripts/export-db-activity.mjs`
+
+## Backup And Recovery Expectations
+
+- define platform-level RPO and RTO targets before production
+- run regular Postgres restore drills outside the application repository
+- keep evidence of restore success alongside CI and release evidence
+- never rerun seed in steady-state recovery unless you are rebuilding a brand-new bootstrap environment
+
+## Evidence Review
+
+Use [Control And Evidence Matrix](./control-evidence-matrix.md) as the index for:
+
+- which checks are required in GitHub
+- which artifacts are produced in release workflows
+- which runtime records must be retained for review

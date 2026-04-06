@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ultimate-template-api-config
+data:
+  APP_ENV: 'production'
+  APP_URL: 'https://app.example.com'
+  API_ORIGIN: 'https://api.example.com'

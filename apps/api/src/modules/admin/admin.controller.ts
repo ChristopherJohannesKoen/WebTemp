@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Query, Req, UseGuards } from '@nestjs/common';
 import { ApiCookieAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -27,10 +27,11 @@ export class AdminController {
   @Roles('owner')
   @ApiOperation({ summary: 'Update a user role' })
   updateRole(
+    @Req() request: AuthenticatedRequest,
     @CurrentUser() currentUser: NonNullable<AuthenticatedRequest['currentUser']>,
     @Param('id') id: string,
     @Body() dto: UpdateRoleDto
   ) {
-    return this.adminService.updateRole(currentUser, id, dto);
+    return this.adminService.updateRole(currentUser, request.currentSession!, id, dto);
   }
 }
